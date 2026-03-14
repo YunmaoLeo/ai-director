@@ -1,0 +1,88 @@
+{
+  "scene_id": "office_room",
+  "scene_name": "Office Room",
+  "scene_type": "interior",
+  "description": "A 5x6m office room with a work desk, monitor, office chair, shelf, whiteboard, and a window.",
+  "bounds": {
+    "width": 5.0,
+    "length": 6.0,
+    "height": 3.0
+  },
+  "objects": [
+    {
+      "id": "desk",
+      "name": "Office Desk",
+      "category": "furniture",
+      "position": [3.5, 0.75, 2.0],
+      "size": [1.4, 0.75, 0.7],
+      "forward": [0.0, 0.0, 1.0],
+      "importance": 0.8,
+      "tags": ["workspace", "functional", "anchor"]
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor",
+      "category": "equipment",
+      "position": [3.5, 1.1, 1.8],
+      "size": [0.6, 0.4, 0.2],
+      "forward": [0.0, 0.0, 1.0],
+      "importance": 0.7,
+      "tags": ["screen", "detail", "functional"]
+    },
+    {
+      "id": "chair",
+      "name": "Office Chair",
+      "category": "furniture",
+      "position": [3.5, 0.5, 2.8],
+      "size": [0.6, 1.0, 0.6],
+      "forward": [0.0, 0.0, -1.0],
+      "importance": 0.5,
+      "tags": ["seating"]
+    },
+    {
+      "id": "shelf",
+      "name": "Bookshelf",
+      "category": "furniture",
+      "position": [0.3, 1.0, 3.0],
+      "size": [0.4, 2.0, 1.0],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.4,
+      "tags": ["storage", "detail"]
+    },
+    {
+      "id": "whiteboard",
+      "name": "Whiteboard",
+      "category": "equipment",
+      "position": [2.5, 1.5, 0.1],
+      "size": [1.5, 1.0, 0.05],
+      "forward": [0.0, 0.0, 1.0],
+      "importance": 0.6,
+      "tags": ["display", "functional", "reveal"]
+    },
+    {
+      "id": "window",
+      "name": "Office Window",
+      "category": "architectural",
+      "position": [4.8, 1.5, 4.0],
+      "size": [0.2, 1.5, 1.5],
+      "forward": [-1.0, 0.0, 0.0],
+      "importance": 0.5,
+      "tags": ["light_source", "view"]
+    }
+  ],
+  "relations": [
+    {"type": "on_top_of", "source": "monitor", "target": "desk"},
+    {"type": "facing", "source": "chair", "target": "desk"},
+    {"type": "across_from", "source": "shelf", "target": "desk"},
+    {"type": "near", "source": "whiteboard", "target": "desk"}
+  ],
+  "free_space": {
+    "walkable_regions": [
+      [[1.0, 1.0], [3.0, 1.0], [3.0, 5.0], [1.0, 5.0]]
+    ],
+    "blocked_regions": [],
+    "preferred_open_regions": [
+      [[1.5, 2.0], [3.0, 2.0], [3.0, 4.5], [1.5, 4.5]]
+    ]
+  }
+}

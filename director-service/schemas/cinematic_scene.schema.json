@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "CinematicAffordance": {
+      "properties": {
+        "object_id": {
+          "title": "Object Id",
+          "type": "string"
+        },
+        "affordance_type": {
+          "title": "Affordance Type",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "score": {
+          "default": 0.5,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "object_id",
+        "affordance_type",
+        "description"
+      ],
+      "title": "CinematicAffordance",
+      "type": "object"
+    },
+    "FramingHint": {
+      "properties": {
+        "object_id": {
+          "title": "Object Id",
+          "type": "string"
+        },
+        "recommended_shot_types": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recommended Shot Types",
+          "type": "array"
+        },
+        "recommended_angles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recommended Angles",
+          "type": "array"
+        },
+        "context_objects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Context Objects",
+          "type": "array"
+        }
+      },
+      "required": [
+        "object_id"
+      ],
+      "title": "FramingHint",
+      "type": "object"
+    },
+    "ObjectGroup": {
+      "properties": {
+        "group_id": {
+          "title": "Group Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Object Ids",
+          "type": "array"
+        },
+        "relation_type": {
+          "title": "Relation Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group_id",
+        "name",
+        "object_ids",
+        "relation_type"
+      ],
+      "title": "ObjectGroup",
+      "type": "object"
+    },
+    "SemanticRegion": {
+      "properties": {
+        "region_id": {
+          "title": "Region Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "center": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Center",
+          "type": "array"
+        },
+        "radius": {
+          "title": "Radius",
+          "type": "number"
+        },
+        "object_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Object Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "region_id",
+        "name",
+        "description",
+        "center",
+        "radius"
+      ],
+      "title": "SemanticRegion",
+      "type": "object"
+    },
+    "VisibilityHint": {
+      "properties": {
+        "object_id": {
+          "title": "Object Id",
+          "type": "string"
+        },
+        "best_viewing_direction": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Best Viewing Direction"
+        },
+        "min_distance": {
+          "default": 1.0,
+          "title": "Min Distance",
+          "type": "number"
+        },
+        "max_distance": {
+          "default": 5.0,
+          "title": "Max Distance",
+          "type": "number"
+        },
+        "occlusion_risk": {
+          "default": 0.0,
+          "title": "Occlusion Risk",
+          "type": "number"
+        }
+      },
+      "required": [
+        "object_id"
+      ],
+      "title": "VisibilityHint",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "scene_id": {
+      "title": "Scene Id",
+      "type": "string"
+    },
+    "semantic_regions": {
+      "items": {
+        "$ref": "#/$defs/SemanticRegion"
+      },
+      "title": "Semantic Regions",
+      "type": "array"
+    },
+    "primary_subjects": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Primary Subjects",
+      "type": "array"
+    },
+    "secondary_subjects": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Secondary Subjects",
+      "type": "array"
+    },
+    "object_groups": {
+      "items": {
+        "$ref": "#/$defs/ObjectGroup"
+      },
+      "title": "Object Groups",
+      "type": "array"
+    },
+    "spatial_summary": {
+      "default": "",
+      "title": "Spatial Summary",
+      "type": "string"
+    },
+    "cinematic_affordances": {
+      "items": {
+        "$ref": "#/$defs/CinematicAffordance"
+      },
+      "title": "Cinematic Affordances",
+      "type": "array"
+    },
+    "visibility_hints": {
+      "items": {
+        "$ref": "#/$defs/VisibilityHint"
+      },
+      "title": "Visibility Hints",
+      "type": "array"
+    },
+    "framing_hints": {
+      "items": {
+        "$ref": "#/$defs/FramingHint"
+      },
+      "title": "Framing Hints",
+      "type": "array"
+    }
+  },
+  "required": [
+    "scene_id"
+  ],
+  "title": "CinematicScene",
+  "type": "object"
+}

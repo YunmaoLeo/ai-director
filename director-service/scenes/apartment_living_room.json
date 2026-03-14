@@ -1,0 +1,89 @@
+{
+  "scene_id": "apartment_living_room",
+  "scene_name": "Apartment Living Room",
+  "scene_type": "interior",
+  "description": "A cozy 6x8m apartment living room with a seating area, work desk near the window, and entrance door.",
+  "bounds": {
+    "width": 6.0,
+    "length": 8.0,
+    "height": 3.0
+  },
+  "objects": [
+    {
+      "id": "sofa",
+      "name": "Sofa",
+      "category": "furniture",
+      "position": [1.5, 0.4, 5.0],
+      "size": [2.0, 0.8, 0.9],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.8,
+      "tags": ["seating", "anchor"]
+    },
+    {
+      "id": "desk",
+      "name": "Work Desk",
+      "category": "furniture",
+      "position": [5.0, 0.75, 2.0],
+      "size": [1.2, 0.75, 0.6],
+      "forward": [0.0, 0.0, 1.0],
+      "importance": 0.7,
+      "tags": ["workspace", "functional"]
+    },
+    {
+      "id": "coffee_table",
+      "name": "Coffee Table",
+      "category": "furniture",
+      "position": [3.0, 0.3, 5.0],
+      "size": [1.0, 0.4, 0.5],
+      "forward": null,
+      "importance": 0.5,
+      "tags": ["surface", "detail"]
+    },
+    {
+      "id": "lamp",
+      "name": "Floor Lamp",
+      "category": "lighting",
+      "position": [0.5, 1.4, 5.5],
+      "size": [0.3, 1.6, 0.3],
+      "forward": null,
+      "importance": 0.3,
+      "tags": ["lighting", "detail", "ambient"]
+    },
+    {
+      "id": "window",
+      "name": "Main Window",
+      "category": "architectural",
+      "position": [5.8, 1.5, 4.0],
+      "size": [0.2, 1.5, 2.0],
+      "forward": [-1.0, 0.0, 0.0],
+      "importance": 0.6,
+      "tags": ["light_source", "reveal", "view"]
+    },
+    {
+      "id": "door",
+      "name": "Entrance Door",
+      "category": "architectural",
+      "position": [0.1, 1.0, 0.5],
+      "size": [0.1, 2.0, 0.9],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.4,
+      "tags": ["entrance", "transition"]
+    }
+  ],
+  "relations": [
+    {"type": "facing", "source": "sofa", "target": "coffee_table"},
+    {"type": "near", "source": "desk", "target": "window"},
+    {"type": "near", "source": "lamp", "target": "sofa"},
+    {"type": "across_from", "source": "door", "target": "window"}
+  ],
+  "free_space": {
+    "walkable_regions": [
+      [[1.0, 1.0], [5.0, 1.0], [5.0, 4.0], [1.0, 4.0]],
+      [[2.5, 4.0], [4.5, 4.0], [4.5, 7.0], [2.5, 7.0]]
+    ],
+    "blocked_regions": [],
+    "preferred_open_regions": [
+      [[2.0, 2.0], [4.5, 2.0], [4.5, 4.0], [2.0, 4.0]]
+    ]
+  }
+}

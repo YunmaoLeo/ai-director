@@ -1,0 +1,164 @@
+{
+  "$defs": {
+    "Movement": {
+      "enum": [
+        "static",
+        "slow_forward",
+        "slow_backward",
+        "lateral_slide",
+        "arc",
+        "pan",
+        "orbit"
+      ],
+      "title": "Movement",
+      "type": "string"
+    },
+    "Pacing": {
+      "enum": [
+        "calm",
+        "steady",
+        "dramatic",
+        "deliberate"
+      ],
+      "title": "Pacing",
+      "type": "string"
+    },
+    "Shot": {
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "goal": {
+          "title": "Goal",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "shot_type": {
+          "$ref": "#/$defs/ShotType"
+        },
+        "movement": {
+          "$ref": "#/$defs/Movement"
+        },
+        "duration": {
+          "title": "Duration",
+          "type": "number"
+        },
+        "pacing": {
+          "$ref": "#/$defs/Pacing",
+          "default": "steady"
+        },
+        "constraints": {
+          "$ref": "#/$defs/ShotConstraints"
+        },
+        "rationale": {
+          "default": "",
+          "title": "Rationale",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_id",
+        "goal",
+        "subject",
+        "shot_type",
+        "movement",
+        "duration"
+      ],
+      "title": "Shot",
+      "type": "object"
+    },
+    "ShotConstraints": {
+      "properties": {
+        "keep_objects_visible": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keep Objects Visible",
+          "type": "array"
+        },
+        "avoid_high_angle": {
+          "default": false,
+          "title": "Avoid High Angle",
+          "type": "boolean"
+        },
+        "avoid_occlusion": {
+          "default": true,
+          "title": "Avoid Occlusion",
+          "type": "boolean"
+        },
+        "preserve_context": {
+          "default": false,
+          "title": "Preserve Context",
+          "type": "boolean"
+        },
+        "end_on_subject": {
+          "default": false,
+          "title": "End On Subject",
+          "type": "boolean"
+        },
+        "maintain_room_readability": {
+          "default": false,
+          "title": "Maintain Room Readability",
+          "type": "boolean"
+        }
+      },
+      "title": "ShotConstraints",
+      "type": "object"
+    },
+    "ShotType": {
+      "enum": [
+        "establishing",
+        "wide",
+        "medium",
+        "close_up",
+        "detail",
+        "reveal"
+      ],
+      "title": "ShotType",
+      "type": "string"
+    }
+  },
+  "properties": {
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "scene_id": {
+      "title": "Scene Id",
+      "type": "string"
+    },
+    "intent": {
+      "title": "Intent",
+      "type": "string"
+    },
+    "summary": {
+      "title": "Summary",
+      "type": "string"
+    },
+    "total_duration": {
+      "title": "Total Duration",
+      "type": "number"
+    },
+    "shots": {
+      "items": {
+        "$ref": "#/$defs/Shot"
+      },
+      "title": "Shots",
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_id",
+    "scene_id",
+    "intent",
+    "summary",
+    "total_duration",
+    "shots"
+  ],
+  "title": "DirectingPlan",
+  "type": "object"
+}

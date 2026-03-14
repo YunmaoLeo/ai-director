@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "Bounds": {
+      "properties": {
+        "width": {
+          "title": "Width",
+          "type": "number"
+        },
+        "length": {
+          "title": "Length",
+          "type": "number"
+        },
+        "height": {
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "length",
+        "height"
+      ],
+      "title": "Bounds",
+      "type": "object"
+    },
+    "FreeSpace": {
+      "properties": {
+        "walkable_regions": {
+          "items": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Walkable Regions",
+          "type": "array"
+        },
+        "blocked_regions": {
+          "items": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Blocked Regions",
+          "type": "array"
+        },
+        "preferred_open_regions": {
+          "items": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "type": "array"
+          },
+          "title": "Preferred Open Regions",
+          "type": "array"
+        }
+      },
+      "title": "FreeSpace",
+      "type": "object"
+    },
+    "SceneObject": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "size": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Size",
+          "type": "array"
+        },
+        "forward": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Forward"
+        },
+        "importance": {
+          "default": 0.5,
+          "title": "Importance",
+          "type": "number"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "category",
+        "position",
+        "size"
+      ],
+      "title": "SceneObject",
+      "type": "object"
+    },
+    "SpatialRelation": {
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "source",
+        "target"
+      ],
+      "title": "SpatialRelation",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "scene_id": {
+      "title": "Scene Id",
+      "type": "string"
+    },
+    "scene_name": {
+      "title": "Scene Name",
+      "type": "string"
+    },
+    "scene_type": {
+      "title": "Scene Type",
+      "type": "string"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "bounds": {
+      "$ref": "#/$defs/Bounds"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/SceneObject"
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "relations": {
+      "items": {
+        "$ref": "#/$defs/SpatialRelation"
+      },
+      "title": "Relations",
+      "type": "array"
+    },
+    "free_space": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FreeSpace"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "scene_id",
+    "scene_name",
+    "scene_type",
+    "description",
+    "bounds",
+    "objects"
+  ],
+  "title": "SceneSummary",
+  "type": "object"
+}

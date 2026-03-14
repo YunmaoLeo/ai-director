@@ -1,0 +1,77 @@
+{
+  "scene_id": "corridor_scene",
+  "scene_name": "Corridor",
+  "scene_type": "interior",
+  "description": "A narrow 2x12m corridor with a door at one end, wall lamps, framed pictures, and a window at the far end.",
+  "bounds": {
+    "width": 2.0,
+    "length": 12.0,
+    "height": 3.0
+  },
+  "objects": [
+    {
+      "id": "door",
+      "name": "Entrance Door",
+      "category": "architectural",
+      "position": [1.0, 1.0, 0.1],
+      "size": [0.9, 2.0, 0.1],
+      "forward": [0.0, 0.0, 1.0],
+      "importance": 0.6,
+      "tags": ["entrance", "transition"]
+    },
+    {
+      "id": "wall_lamp_1",
+      "name": "Wall Lamp 1",
+      "category": "lighting",
+      "position": [0.1, 2.2, 3.0],
+      "size": [0.2, 0.3, 0.2],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.3,
+      "tags": ["lighting", "ambient"]
+    },
+    {
+      "id": "wall_lamp_2",
+      "name": "Wall Lamp 2",
+      "category": "lighting",
+      "position": [1.9, 2.2, 7.0],
+      "size": [0.2, 0.3, 0.2],
+      "forward": [-1.0, 0.0, 0.0],
+      "importance": 0.3,
+      "tags": ["lighting", "ambient"]
+    },
+    {
+      "id": "picture",
+      "name": "Framed Picture",
+      "category": "decoration",
+      "position": [0.05, 1.5, 5.5],
+      "size": [0.05, 0.6, 0.8],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.5,
+      "tags": ["detail", "art", "reveal"]
+    },
+    {
+      "id": "end_window",
+      "name": "End Window",
+      "category": "architectural",
+      "position": [1.0, 1.5, 11.9],
+      "size": [1.2, 1.5, 0.1],
+      "forward": [0.0, 0.0, -1.0],
+      "importance": 0.7,
+      "tags": ["light_source", "reveal", "endpoint"]
+    }
+  ],
+  "relations": [
+    {"type": "aligned_with", "source": "wall_lamp_1", "target": "wall_lamp_2"},
+    {"type": "opposite_end", "source": "door", "target": "end_window"},
+    {"type": "near", "source": "picture", "target": "wall_lamp_1"}
+  ],
+  "free_space": {
+    "walkable_regions": [
+      [[0.3, 0.5], [1.7, 0.5], [1.7, 11.5], [0.3, 11.5]]
+    ],
+    "blocked_regions": [],
+    "preferred_open_regions": [
+      [[0.5, 1.0], [1.5, 1.0], [1.5, 11.0], [0.5, 11.0]]
+    ]
+  }
+}

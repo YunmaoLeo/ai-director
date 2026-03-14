@@ -1,0 +1,45 @@
+## Scene Information
+
+Scene: {scene_name} ({scene_type})
+Dimensions: {width}m x {length}m x {height}m
+
+### Spatial Summary
+{spatial_summary}
+
+### Objects
+{objects_text}
+
+### Semantic Regions
+{regions_text}
+
+### Cinematic Affordances
+{affordances_text}
+
+### Object Groups
+{groups_text}
+
+## User Intent
+{intent}
+
+## Task
+Create a directing plan for this scene based on the user intent above.
+Output a JSON object with these fields:
+- plan_id: a unique identifier string
+- scene_id: "{scene_id}"
+- intent: the user's intent
+- summary: a brief narrative summary of the plan
+- total_duration: total duration in seconds
+- shots: an array of shot objects
+
+Each shot must have:
+- shot_id: unique identifier
+- goal: what this shot achieves
+- subject: the main subject (must be a valid object id or "room")
+- shot_type: one of the allowed types
+- movement: one of the allowed movement types
+- duration: duration in seconds
+- pacing: one of the allowed pacing values
+- constraints: object with optional fields (keep_objects_visible, avoid_high_angle, avoid_occlusion, preserve_context, end_on_subject, maintain_room_readability)
+- rationale: why this shot is included
+
+Output ONLY valid JSON. No commentary.

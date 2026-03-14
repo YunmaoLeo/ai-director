@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "PathType": {
+      "enum": [
+        "linear",
+        "bezier",
+        "arc"
+      ],
+      "title": "PathType",
+      "type": "string"
+    },
+    "ShotTrajectory": {
+      "properties": {
+        "shot_id": {
+          "title": "Shot Id",
+          "type": "string"
+        },
+        "start_position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Start Position",
+          "type": "array"
+        },
+        "end_position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "End Position",
+          "type": "array"
+        },
+        "look_at_position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Look At Position",
+          "type": "array"
+        },
+        "fov": {
+          "default": 60.0,
+          "title": "Fov",
+          "type": "number"
+        },
+        "path_type": {
+          "$ref": "#/$defs/PathType",
+          "default": "linear"
+        },
+        "sampled_points": {
+          "items": {
+            "maxItems": 3,
+            "minItems": 3,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Sampled Points",
+          "type": "array"
+        },
+        "duration": {
+          "default": 3.0,
+          "title": "Duration",
+          "type": "number"
+        },
+        "metrics": {
+          "$ref": "#/$defs/TrajectoryMetrics"
+        }
+      },
+      "required": [
+        "shot_id",
+        "start_position",
+        "end_position",
+        "look_at_position"
+      ],
+      "title": "ShotTrajectory",
+      "type": "object"
+    },
+    "TrajectoryMetrics": {
+      "properties": {
+        "visibility_score": {
+          "default": 0.0,
+          "title": "Visibility Score",
+          "type": "number"
+        },
+        "smoothness_score": {
+          "default": 0.0,
+          "title": "Smoothness Score",
+          "type": "number"
+        },
+        "framing_score": {
+          "default": 0.0,
+          "title": "Framing Score",
+          "type": "number"
+        },
+        "occlusion_risk": {
+          "default": 0.0,
+          "title": "Occlusion Risk",
+          "type": "number"
+        },
+        "clearance_score": {
+          "default": 0.0,
+          "title": "Clearance Score",
+          "type": "number"
+        }
+      },
+      "title": "TrajectoryMetrics",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "plan_id": {
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "scene_id": {
+      "title": "Scene Id",
+      "type": "string"
+    },
+    "total_duration": {
+      "title": "Total Duration",
+      "type": "number"
+    },
+    "trajectories": {
+      "items": {
+        "$ref": "#/$defs/ShotTrajectory"
+      },
+      "title": "Trajectories",
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_id",
+    "scene_id",
+    "total_duration",
+    "trajectories"
+  ],
+  "title": "TrajectoryPlan",
+  "type": "object"
+}
