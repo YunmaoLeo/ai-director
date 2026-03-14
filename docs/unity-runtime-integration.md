@@ -186,7 +186,13 @@ Payload shape:
 }
 ```
 
-Your current Python backend does not expose this endpoint yet. The Unity client is already prepared for it.
+This endpoint is now implemented on the backend.
+
+On each Unity upload:
+
+- the uploaded `scene_summary` is saved into the backend `scenes/` directory as a reusable debug scene snapshot
+- the generated `directing_plan`, `trajectory_plan`, and `validation_report` are saved with a unique output prefix
+- the response includes `debug_scene_id`, `debug_scene_file`, and `output_prefix`
 
 ## Backend response expected by Unity
 
@@ -212,11 +218,4 @@ The important part for playback is `trajectory_plan.trajectories[*].sampled_poin
 
 ## Suggested backend next step
 
-If you want full Unity runtime scene upload, add a new FastAPI endpoint that accepts:
-
-- `scene_id`
-- `intent`
-- `scene_summary`
-- optional `vision_analysis`
-
-Then run the existing pipeline with the provided scene summary instead of loading a file by `scene_id`.
+The next useful backend improvement would be to expose grouped run history metadata, so the frontend can browse saved output bundles by `output_prefix` instead of only listing raw JSON filenames.

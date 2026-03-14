@@ -19,11 +19,23 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchScenes()
-      .then(setScenes)
-      .catch(err => setError(err.message));
+  const loadScenes = useCallback(async () => {
+    try {
+      const nextScenes = await fetchScenes();
+      setScenes(nextScenes);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }, []);
+
+  useEffect(() => {
+    loadScenes();
+  }, [loadScenes]);
+
+  useEffect(() => {
+    if (!result?.debug_scene_id) return;
+    loadScenes();
+  }, [result?.debug_scene_id, loadScenes]);
 
   const handleSceneSelect = useCallback(async (sceneId: string) => {
     setSelectedSceneId(sceneId);
@@ -62,6 +74,9 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>AI Director</h1>
+        <button type="button" onClick={() => loadScenes()}>
+          Refresh Scenes
+        </button>
         <select
           value={selectedSceneId}
           onChange={e => handleSceneSelect(e.target.value)}

@@ -6,7 +6,7 @@ from app.models.scene_summary import SceneSummary
 from app.models.cinematic_scene import CinematicScene
 from app.models.directing_plan import DirectingPlan
 from app.models.trajectory_plan import TrajectoryPlan
-from app.models.validation_report import ValidationReport, ValidationIssue
+from app.models.validation_report import ValidationReport
 from app.services.scene_abstraction import SceneAbstractor
 from app.services.affordance_analyzer import AffordanceAnalyzer
 from app.services.directing_plan_generator import DirectingPlanGenerator
@@ -48,7 +48,7 @@ class GeneratePlanPipeline:
         self._generator = DirectingPlanGenerator(self._llm_client)
         self._validator = PlanValidator()
         self._solver = TrajectorySolver()
-        self._file_manager = FileManager(output_dir)
+        self._file_manager = FileManager(output_dir, scenes_dir)
         self._scenes_dir = Path(scenes_dir)
 
     def run(
@@ -61,6 +61,16 @@ class GeneratePlanPipeline:
         # Step 1: Load scene
         logger.info("Loading scene from %s", scene_path)
         scene = self._file_manager.load_scene(scene_path)
+        return self.run_scene(scene, intent, save=save, prefix=prefix)
+
+    def run_scene(
+        self,
+        scene: SceneSummary,
+        intent: str,
+        save: bool = True,
+        prefix: str = "",
+    ) -> PipelineResult:
+        logger.info("Running pipeline for scene_id=%s", scene.scene_id)
 
         # Step 2: Derive cinematic abstraction
         logger.info("Building cinematic scene abstraction...")

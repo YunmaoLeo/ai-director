@@ -9,6 +9,9 @@ interface Props {
   scene: SceneSummary;
   trajectories?: ShotTrajectory[];
   selectedShotId?: string | null;
+  currentCameraPosition?: [number, number, number] | null;
+  currentLookAtPosition?: [number, number, number] | null;
+  currentShotId?: string | null;
   width?: number;
   height?: number;
 }
@@ -17,6 +20,9 @@ export default function TopDownCanvas({
   scene,
   trajectories,
   selectedShotId,
+  currentCameraPosition,
+  currentLookAtPosition,
+  currentShotId,
   width = 500,
   height = 400,
 }: Props) {
@@ -79,7 +85,7 @@ export default function TopDownCanvas({
     if (trajectories) {
       trajectories.forEach((traj, idx) => {
         const color = SHOT_COLORS[idx % SHOT_COLORS.length];
-        const isSelected = selectedShotId === traj.shot_id;
+        const isSelected = selectedShotId === traj.shot_id || currentShotId === traj.shot_id;
         const alpha = selectedShotId ? (isSelected ? 1.0 : 0.25) : 0.8;
 
         ctx.globalAlpha = alpha;
@@ -141,12 +147,46 @@ export default function TopDownCanvas({
       });
     }
 
+    if (currentCameraPosition) {
+      const [cx, cz] = toCanvas(currentCameraPosition[0], currentCameraPosition[2]);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(cx, cz, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(cx, cz, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (currentLookAtPosition) {
+        const [lx, lz] = toCanvas(currentLookAtPosition[0], currentLookAtPosition[2]);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(cx, cz);
+        ctx.lineTo(lx, lz);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
     // Legend
     ctx.fillStyle = '#888';
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
     ctx.fillText(`${scene.bounds.width}m x ${scene.bounds.length}m`, pad, H - 8);
-  }, [scene, trajectories, selectedShotId, width, height]);
+  }, [
+    scene,
+    trajectories,
+    selectedShotId,
+    currentCameraPosition,
+    currentLookAtPosition,
+    currentShotId,
+    width,
+    height,
+  ]);
 
   return (
     <canvas

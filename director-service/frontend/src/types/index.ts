@@ -112,4 +112,7 @@ export interface GenerateResponse {
   directing_plan: DirectingPlan;
   trajectory_plan: TrajectoryPlan;
   validation_report: ValidationReport;
+  debug_scene_id?: string | null;
+  debug_scene_file?: string | null;
+  output_prefix?: string | null;
 }

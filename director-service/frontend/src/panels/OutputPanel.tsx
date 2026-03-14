@@ -26,6 +26,13 @@ export default function OutputPanel({ result, history }: Props) {
         Output
         <ValidationBadge report={displayResult.validation_report} />
       </h3>
+      {(displayResult.debug_scene_id || displayResult.output_prefix) && (
+        <div className="meta" style={{ marginBottom: 12 }}>
+          {displayResult.debug_scene_id && <span>Debug Scene: <code>{displayResult.debug_scene_id}</code></span>}
+          {displayResult.debug_scene_file && <span>Scene File: <code>{displayResult.debug_scene_file}</code></span>}
+          {displayResult.output_prefix && <span>Output Prefix: <code>{displayResult.output_prefix}</code></span>}
+        </div>
+      )}
 
       <div className="tab-bar">
         <button className={tab === 'directing_plan' ? 'active' : ''} onClick={() => setTab('directing_plan')}>
