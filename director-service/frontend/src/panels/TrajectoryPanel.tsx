@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SceneSummary, ShotTrajectory, TrajectoryPlan } from '../types';
 import TopDownCanvas from '../components/TopDownCanvas';
+import ThreeTrajectoryPreview from '../components/ThreeTrajectoryPreview';
 
 interface Props {
   scene: SceneSummary | null;
@@ -14,6 +15,7 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId }: P
     : trajectory?.total_duration ?? 0;
   const [isPlaying, setIsPlaying] = useState(false);
   const [playheadSeconds, setPlayheadSeconds] = useState(0);
+  const [previewMode, setPreviewMode] = useState<'camera' | 'observer'>('camera');
   const lastFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -86,6 +88,41 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId }: P
         }}
         style={{ width: '100%', marginBottom: 12 }}
       />
+      <div className="preview-3d-block">
+        <div className="preview-3d-header">
+          <span>3D Camera Preview</span>
+          <div className="tag-list" style={{ marginTop: 0 }}>
+            <button
+              className={`tag-button ${previewMode === 'camera' ? 'active' : ''}`}
+              onClick={() => setPreviewMode('camera')}
+              type="button"
+            >
+              Camera View
+            </button>
+            <button
+              className={`tag-button ${previewMode === 'observer' ? 'active' : ''}`}
+              onClick={() => setPreviewMode('observer')}
+              type="button"
+            >
+              Observer View
+            </button>
+            <span className="muted">
+              FOV {playbackState.fov.toFixed(1)}°
+            </span>
+          </div>
+        </div>
+        <ThreeTrajectoryPreview
+          scene={scene}
+          trajectories={trajectory.trajectories}
+          currentCameraPosition={playbackState.position}
+          currentLookAtPosition={playbackState.lookAt}
+          currentFov={playbackState.fov}
+          currentShotId={playbackState.shotId}
+          viewMode={previewMode}
+          width={760}
+          height={360}
+        />
+      </div>
       <TopDownCanvas
         scene={scene}
         trajectories={trajectory.trajectories}
@@ -143,12 +180,13 @@ function samplePlaybackState(
   shotId: string | null;
   position: [number, number, number] | null;
   lookAt: [number, number, number] | null;
+  fov: number;
 } {
   const shots = selectedShotId
     ? trajectoryPlan.trajectories.filter(t => t.shot_id === selectedShotId)
     : trajectoryPlan.trajectories;
   if (shots.length === 0) {
-    return { shotId: null, position: null, lookAt: null };
+    return { shotId: null, position: null, lookAt: null, fov: 60 };
   }
 
   let remaining = Math.max(0, playheadSeconds);
@@ -163,7 +201,7 @@ function samplePlaybackState(
   }
 
   if (activeShot.sampled_points.length === 0) {
-    return { shotId: activeShot.shot_id, position: null, lookAt: activeShot.look_at_position };
+    return { shotId: activeShot.shot_id, position: null, lookAt: activeShot.look_at_position, fov: activeShot.fov };
   }
 
   if (activeShot.sampled_points.length === 1 || activeShot.duration <= 0) {
@@ -171,6 +209,7 @@ function samplePlaybackState(
       shotId: activeShot.shot_id,
       position: activeShot.sampled_points[0],
       lookAt: activeShot.look_at_position,
+      fov: activeShot.fov,
     };
   }
 
@@ -183,6 +222,7 @@ function samplePlaybackState(
     shotId: activeShot.shot_id,
     position: lerpPoint(activeShot.sampled_points[startIndex], activeShot.sampled_points[endIndex], localT),
     lookAt: activeShot.look_at_position,
+    fov: activeShot.fov,
   };
 }
 

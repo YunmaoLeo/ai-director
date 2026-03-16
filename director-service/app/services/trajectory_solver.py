@@ -40,7 +40,7 @@ _SHOT_HEIGHTS: dict[ShotType, float] = {
     ShotType.reveal: 1.6,
 }
 
-_NUM_POINTS = 15
+_NUM_POINTS = 24
 
 
 class TrajectorySolver:
@@ -220,6 +220,7 @@ class TrajectorySolver:
             elif start_angle - end_angle > math.pi:
                 end_angle += 2 * math.pi
             points = arc_points(look_at, dist, start_angle, end_angle, _NUM_POINTS, height)
+            points = self._resample_with_ease(points, _NUM_POINTS)
             return PathType.arc, points
 
         if shot.movement in (Movement.slow_forward, Movement.slow_backward, Movement.lateral_slide):
@@ -236,13 +237,111 @@ class TrajectorySolver:
                 mid[2] + (look_at[2] - mid[2]) * 0.2,
             )
             points = bezier_quadratic(start, ctrl, end, _NUM_POINTS)
+            points = self._add_cinematic_sway(points)
+            points = self._resample_with_ease(points, _NUM_POINTS)
             return PathType.bezier, points
 
         # Static or pan: linear (or single point)
         if shot.movement == Movement.static:
             return PathType.linear, [start] * _NUM_POINTS
 
-        return PathType.linear, linear_points(start, end, _NUM_POINTS)
+        if shot.movement == Movement.pan:
+            points = self._resample_with_ease(linear_points(start, end, _NUM_POINTS), _NUM_POINTS)
+            return PathType.linear, points
+
+        points = self._build_soft_bezier_path(start, end, _NUM_POINTS)
+        points = self._resample_with_ease(points, _NUM_POINTS)
+        return PathType.bezier, points
+
+    def _build_soft_bezier_path(self, start: Vec3, end: Vec3, num_points: int) -> list[Vec3]:
+        """Default path for non-static movement: soft curve instead of a rigid straight segment."""
+        mid = (
+            (start[0] + end[0]) / 2,
+            (start[1] + end[1]) / 2,
+            (start[2] + end[2]) / 2,
+        )
+        dir_x = end[0] - start[0]
+        dir_z = end[2] - start[2]
+        length = math.sqrt(dir_x * dir_x + dir_z * dir_z)
+        if length < 1e-4:
+            return [start] * num_points
+
+        perp_x = -dir_z / length
+        perp_z = dir_x / length
+        offset = min(0.55, length * 0.28)
+        ctrl = (
+            mid[0] + perp_x * offset,
+            mid[1],
+            mid[2] + perp_z * offset,
+        )
+        return bezier_quadratic(start, ctrl, end, num_points)
+
+    def _add_cinematic_sway(self, points: list[Vec3]) -> list[Vec3]:
+        """Add subtle lateral breathing to avoid robotic motion."""
+        if len(points) < 3:
+            return points
+
+        first = points[0]
+        last = points[-1]
+        dir_x = last[0] - first[0]
+        dir_z = last[2] - first[2]
+        length = math.sqrt(dir_x * dir_x + dir_z * dir_z)
+        if length < 1e-4:
+            return points
+
+        perp_x = -dir_z / length
+        perp_z = dir_x / length
+        sway_amplitude = min(0.18, length * 0.08)
+        result: list[Vec3] = []
+        count = len(points) - 1
+        for idx, p in enumerate(points):
+            t = idx / max(1, count)
+            envelope = math.sin(math.pi * t)
+            sway = math.sin(2 * math.pi * t) * envelope * sway_amplitude
+            result.append((p[0] + perp_x * sway, p[1], p[2] + perp_z * sway))
+        return result
+
+    def _resample_with_ease(self, points: list[Vec3], num_points: int) -> list[Vec3]:
+        """Resample a polyline with smoothstep timing to mimic cinematic acceleration/deceleration."""
+        if len(points) <= 1 or num_points <= 1:
+            return points
+
+        lengths = [0.0]
+        for i in range(1, len(points)):
+            seg_len = vec3_distance(points[i], points[i - 1])
+            lengths.append(lengths[-1] + seg_len)
+
+        total = lengths[-1]
+        if total <= 1e-6:
+            return [points[0]] * num_points
+
+        result: list[Vec3] = []
+        for i in range(num_points):
+            t = i / max(1, num_points - 1)
+            eased_t = t * t * (3 - 2 * t)  # smoothstep
+            target_len = total * eased_t
+            result.append(self._sample_at_distance(points, lengths, target_len))
+        return result
+
+    def _sample_at_distance(self, points: list[Vec3], cumulative_lengths: list[float], target_len: float) -> Vec3:
+        if target_len <= 0:
+            return points[0]
+        if target_len >= cumulative_lengths[-1]:
+            return points[-1]
+
+        for i in range(1, len(cumulative_lengths)):
+            if cumulative_lengths[i] >= target_len:
+                prev_len = cumulative_lengths[i - 1]
+                seg_len = max(1e-6, cumulative_lengths[i] - prev_len)
+                local_t = (target_len - prev_len) / seg_len
+                a = points[i - 1]
+                b = points[i]
+                return (
+                    a[0] + (b[0] - a[0]) * local_t,
+                    a[1] + (b[1] - a[1]) * local_t,
+                    a[2] + (b[2] - a[2]) * local_t,
+                )
+        return points[-1]
 
     def _apply_collision_avoidance(
         self, points: list[Vec3], scene: SceneSummary

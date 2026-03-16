@@ -115,4 +115,28 @@ export interface GenerateResponse {
   debug_scene_id?: string | null;
   debug_scene_file?: string | null;
   output_prefix?: string | null;
+  llm_provider?: string | null;
+  llm_model?: string | null;
+  llm_model_requested?: string | null;
+  source_api?: string | null;
+  saved_at?: string | null;
+}
+
+export interface RunSummary {
+  prefix: string;
+  created_at: string;
+  scene_id: string;
+  intent: string;
+  llm_provider?: string;
+  llm_model?: string;
+  source_api?: string;
+  debug_scene_id?: string;
+  debug_scene_file?: string;
+}
+
+export interface LlmModelsResponse {
+  llm_provider: string;
+  default_model: string;
+  recommended_models: string[];
+  aliases: Record<string, string>;
 }

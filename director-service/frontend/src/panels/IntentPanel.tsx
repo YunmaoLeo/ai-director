@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { fetchLlmModels } from '../lib/api';
 
 interface Props {
-  onGenerate: (intent: string) => void;
+  onGenerate: (intent: string, llmModel: string) => void;
   loading: boolean;
   sceneLoaded: boolean;
   history: string[];
@@ -14,12 +15,42 @@ const EXAMPLE_INTENTS = [
   'Focus on the main subject in detail',
 ];
 
+const FALLBACK_MODELS = [
+  'gpt-5.2-chat-latest',
+  'gpt-5.2',
+  'gpt-5.1-chat-latest',
+  'gpt-5.1',
+  'gpt-5-chat-latest',
+  'gpt-5',
+  'gpt-4.1',
+  'gpt-4.1-mini',
+  'gpt-4o',
+  'gpt-4o-mini',
+];
+
 export default function IntentPanel({ onGenerate, loading, sceneLoaded, history }: Props) {
   const [intent, setIntent] = useState('');
+  const [llmModel, setLlmModel] = useState('gpt-5.2-chat-latest');
+  const [modelOptions, setModelOptions] = useState<string[]>(FALLBACK_MODELS);
+
+  useEffect(() => {
+    fetchLlmModels()
+      .then(data => {
+        const merged = Array.from(new Set([...data.recommended_models, ...FALLBACK_MODELS]));
+        setModelOptions(merged);
+        if (!llmModel.trim() || llmModel === 'gpt-5.2-chat-latest') {
+          setLlmModel(data.default_model || merged[0] || 'gpt-5.2-chat-latest');
+        }
+      })
+      .catch(() => {
+        // Keep fallback list; no-op.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = () => {
     if (intent.trim() && sceneLoaded) {
-      onGenerate(intent.trim());
+      onGenerate(intent.trim(), llmModel.trim() || 'gpt-5.2-chat-latest');
     }
   };
 
@@ -40,6 +71,26 @@ export default function IntentPanel({ onGenerate, loading, sceneLoaded, history 
         }}
       />
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+        <select
+          value={llmModel}
+          onChange={e => setLlmModel(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: 180,
+            background: 'var(--bg)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '6px 10px',
+            fontSize: 13,
+          }}
+        >
+          {modelOptions.map(model => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
         <button onClick={handleSubmit} disabled={loading || !sceneLoaded || !intent.trim()}>
           {loading ? 'Generating...' : 'Generate Plan'}
         </button>

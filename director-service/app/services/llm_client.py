@@ -17,6 +17,22 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+_OPENAI_CHAT_MODEL_ALIASES: dict[str, str] = {
+    "gpt-5": "gpt-5-chat-latest",
+    "gpt-5.1": "gpt-5.1-chat-latest",
+    "gpt-5.2": "gpt-5.2-chat-latest",
+}
+
+_RECOMMENDED_OPENAI_CHAT_MODELS: list[str] = [
+    "gpt-5.2-chat-latest",
+    "gpt-5.1-chat-latest",
+    "gpt-5-chat-latest",
+    "gpt-4.1",
+    "gpt-4.1-mini",
+    "gpt-4o",
+    "gpt-4o-mini",
+]
+
 
 class LLMClient(ABC):
     @abstractmethod
@@ -258,20 +274,29 @@ class OpenAILLMClient(LLMClient):
     def __init__(self, model: str | None = None, api_key: str | None = None):
         from openai import OpenAI
 
-        self._model = model or settings.llm_model or "gpt-4o"
+        self._model = resolve_openai_chat_model(model or settings.llm_model or "gpt-4o")
         self._client = OpenAI(api_key=api_key or settings.llm_api_key)
 
     def generate(self, system_prompt: str, user_prompt: str) -> str:
         logger.info("Calling OpenAI model=%s ...", self._model)
-        response = self._client.chat.completions.create(
-            model=self._model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.7,
-            response_format={"type": "json_object"},
-        )
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        try:
+            response = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=0.7,
+                response_format={"type": "json_object"},
+            )
+        except Exception as first_error:
+            logger.warning(
+                "Primary chat.completions request failed for model=%s (%s). Retrying with compatible fallback.",
+                self._model,
+                first_error,
+            )
+            response = self._retry_compatible_request(messages, first_error)
         content = response.choices[0].message.content or ""
         logger.info(
             "OpenAI response received (%d chars, tokens: %s prompt + %s completion)",
@@ -281,12 +306,57 @@ class OpenAILLMClient(LLMClient):
         )
         return content
 
+    def _retry_compatible_request(self, messages: list[dict], first_error: Exception):
+        # Retry strategy:
+        # 1) Keep JSON response format but remove temperature (some GPT-5 chat models enforce default temp)
+        # 2) Remove both response_format and temperature as last compatibility fallback
+        try:
+            return self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                response_format={"type": "json_object"},
+            )
+        except Exception as second_error:
+            logger.warning(
+                "Second compatibility retry failed for model=%s (%s). "
+                "Retrying without response_format and temperature.",
+                self._model,
+                second_error,
+            )
+            try:
+                return self._client.chat.completions.create(
+                    model=self._model,
+                    messages=messages,
+                )
+            except Exception:
+                # Bubble up the original first error context for easier debugging.
+                raise first_error
 
-def create_llm_client(provider: str | None = None) -> LLMClient:
+
+def create_llm_client(
+    provider: str | None = None,
+    model: str | None = None,
+) -> LLMClient:
     """Factory function for LLM clients."""
     provider = provider or settings.llm_provider
     if provider == "mock":
         return MockLLMClient()
     if provider == "openai":
-        return OpenAILLMClient()
+        return OpenAILLMClient(model=model)
     raise ValueError(f"Unknown LLM provider: {provider}")
+
+
+def resolve_openai_chat_model(model: str) -> str:
+    """Resolve common model aliases to chat-compatible model ids."""
+    normalized = (model or "").strip()
+    if not normalized:
+        return "gpt-4o"
+    if normalized in _OPENAI_CHAT_MODEL_ALIASES:
+        resolved = _OPENAI_CHAT_MODEL_ALIASES[normalized]
+        logger.info("Resolved model alias %s -> %s", normalized, resolved)
+        return resolved
+    return normalized
+
+
+def recommended_openai_chat_models() -> list[str]:
+    return list(_RECOMMENDED_OPENAI_CHAT_MODELS)

@@ -3,6 +3,7 @@
 from datetime import datetime, UTC
 from pathlib import Path
 from re import sub
+from typing import Any
 
 from app.models.scene_summary import SceneSummary
 from app.models.directing_plan import DirectingPlan
@@ -80,6 +81,58 @@ class FileManager:
         """List output JSON files."""
         return sorted(f.name for f in self._output_dir.glob("*.json"))
 
+    def save_run_metadata(self, prefix: str, metadata: dict[str, Any]) -> Path:
+        filename = f"{prefix}run_metadata.json"
+        path = self._output_dir / filename
+        payload = {
+            "prefix": prefix,
+            "created_at": datetime.now(UTC).isoformat(),
+            **metadata,
+        }
+        save_json(payload, path)
+        logger.info("Saved run metadata to %s", path)
+        return path
+
+    def list_runs(self) -> list[dict[str, Any]]:
+        """List generated run bundles from run metadata files."""
+        runs: list[dict[str, Any]] = []
+        for path in self._output_dir.glob("*run_metadata.json"):
+            try:
+                data = load_json(path)
+            except Exception:
+                logger.warning("Skipping invalid run metadata file: %s", path)
+                continue
+            runs.append(data)
+        runs.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+        return runs
+
+    def load_run_bundle(self, prefix: str) -> dict[str, Any]:
+        """Load a run bundle by prefix."""
+        normalized_prefix = self._normalize_prefix(prefix)
+        metadata_path = self._output_dir / f"{normalized_prefix}run_metadata.json"
+        directing_path = self._output_dir / f"{normalized_prefix}directing_plan.json"
+        trajectory_path = self._output_dir / f"{normalized_prefix}trajectory_plan.json"
+        validation_path = self._output_dir / f"{normalized_prefix}validation_report.json"
+
+        for required_path in [metadata_path, directing_path, trajectory_path, validation_path]:
+            if not required_path.exists():
+                raise FileNotFoundError(f"Missing run artifact: {required_path.name}")
+
+        metadata = load_json(metadata_path)
+        return {
+            "directing_plan": load_json(directing_path),
+            "trajectory_plan": load_json(trajectory_path),
+            "validation_report": load_json(validation_path),
+            "output_prefix": normalized_prefix,
+            "debug_scene_id": metadata.get("debug_scene_id"),
+            "debug_scene_file": metadata.get("debug_scene_file"),
+            "llm_provider": metadata.get("llm_provider"),
+            "llm_model": metadata.get("llm_model"),
+            "llm_model_requested": metadata.get("llm_model_requested"),
+            "source_api": metadata.get("source_api"),
+            "saved_at": metadata.get("created_at"),
+        }
+
     @staticmethod
     def build_run_prefix(scene_id: str, label: str = "") -> str:
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -93,3 +146,14 @@ class FileManager:
     def _slugify(value: str) -> str:
         normalized = sub(r"[^a-zA-Z0-9]+", "_", value.strip().lower()).strip("_")
         return normalized or "scene"
+
+    @staticmethod
+    def _normalize_prefix(prefix: str) -> str:
+        normalized = prefix.strip()
+        if not normalized:
+            raise ValueError("Run prefix is empty.")
+        if not normalized.endswith("_"):
+            normalized += "_"
+        if sub(r"[a-zA-Z0-9_]", "", normalized):
+            raise ValueError("Invalid run prefix.")
+        return normalized

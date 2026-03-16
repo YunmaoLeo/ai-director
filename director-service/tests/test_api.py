@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from app import api
 from app.api import api_app
 from app.services.file_manager import FileManager
+from app.services.llm_client import resolve_openai_chat_model
 
 
 @pytest.fixture
@@ -57,13 +58,22 @@ def test_generate_plan(client):
     response = client.post("/api/generate", json={
         "scene_id": "apartment_living_room",
         "intent": "Give me an overview",
+        "llm_provider": "mock",
     })
     assert response.status_code == 200
     data = response.json()
     assert "directing_plan" in data
     assert "trajectory_plan" in data
     assert "validation_report" in data
+    assert data["llm_provider"] == "mock"
+    assert data["source_api"] == "generate"
     assert len(data["directing_plan"]["shots"]) >= 2
+
+
+def test_model_alias_mapping_function():
+    assert resolve_openai_chat_model("gpt-5.2") == "gpt-5.2-chat-latest"
+    assert resolve_openai_chat_model("gpt-5.1") == "gpt-5.1-chat-latest"
+    assert resolve_openai_chat_model("gpt-4.1") == "gpt-4.1"
 
 
 def test_generate_plan_not_found(client):
@@ -78,6 +88,14 @@ def test_list_outputs(client):
     response = client.get("/api/outputs")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+def test_list_llm_models_endpoint(client):
+    response = client.get("/api/llm/models")
+    assert response.status_code == 200
+    data = response.json()
+    assert "recommended_models" in data
+    assert "aliases" in data
 
 
 def test_generate_plan_from_unity_saves_scene_and_outputs(client, isolated_runtime_dirs):
@@ -118,8 +136,32 @@ def test_generate_plan_from_unity_saves_scene_and_outputs(client, isolated_runti
     assert data["debug_scene_id"]
     assert data["debug_scene_file"]
     assert data["output_prefix"]
+    assert data["llm_provider"] == "mock"
+    assert data["source_api"] == "unity_generate"
 
     saved_scene = scenes_dir / data["debug_scene_file"]
     assert saved_scene.exists()
     saved_outputs = list(output_dir.glob(f'{data["output_prefix"]}*.json'))
-    assert len(saved_outputs) == 3
+    assert len(saved_outputs) == 4
+
+
+def test_list_and_load_runs(client, isolated_runtime_dirs):
+    response = client.post("/api/generate", json={
+        "scene_id": "office_room",
+        "intent": "Show me this office",
+        "llm_model": "gpt-4o-mini",
+    })
+    assert response.status_code == 200
+    prefix = response.json()["output_prefix"]
+
+    runs_response = client.get("/api/runs")
+    assert runs_response.status_code == 200
+    runs = runs_response.json()
+    assert any(run["prefix"] == prefix for run in runs)
+
+    run_response = client.get(f"/api/runs/{prefix}")
+    assert run_response.status_code == 200
+    run_bundle = run_response.json()
+    assert run_bundle["output_prefix"] == prefix
+    assert run_bundle["llm_model"] == "gpt-4o-mini"
+    assert "directing_plan" in run_bundle

@@ -53,19 +53,74 @@ body {
   font-size: 13px;
 }
 
-.panels-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 1px;
-  background: var(--border);
-  min-height: calc(100vh - 50px);
+.workspace {
+  display: flex;
+  gap: 0;
+  height: calc(100vh - 58px);
+  min-height: 640px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(88, 166, 255, 0.06), transparent 42%),
+    linear-gradient(180deg, #0b111b, #0d1117);
+  overflow: hidden;
+}
+
+.panel-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 260px;
+  height: 100%;
+  background: rgba(13, 17, 23, 0.5);
+}
+
+.workspace-splitter {
+  width: 7px;
+  cursor: col-resize;
+  background: linear-gradient(180deg, #0a121d, #101a28);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.workspace-splitter:hover {
+  background: linear-gradient(180deg, #13243a, #15304f);
+}
+
+.stack-pane {
+  overflow: hidden;
+}
+
+.substack {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sub-pane {
+  overflow: hidden;
+}
+
+.stack-splitter {
+  height: 8px;
+  cursor: row-resize;
+  background: linear-gradient(90deg, #0a121d, #0f2033, #0a121d);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.stack-splitter:hover {
+  background: linear-gradient(90deg, #143153, #1b4d84, #143153);
+}
+
+.stack-splitter-thin {
+  height: 6px;
+  cursor: default;
 }
 
 .panel {
   background: var(--surface);
   padding: 16px;
-  overflow-y: auto;
-  max-height: calc(50vh - 25px);
+  overflow: auto;
+  height: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .panel h3 {
@@ -92,10 +147,65 @@ body {
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 8px;
+}
+
+.preview-3d-block {
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(88, 166, 255, 0.12), transparent 40%),
+    linear-gradient(180deg, rgba(8, 15, 24, 0.95), rgba(13, 17, 23, 1));
+}
+
+.preview-3d-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.preview-3d-shell {
+  position: relative;
+}
+
+.preview-3d-shell canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 1100px) {
+  .workspace {
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+  }
+
+  .panel-column {
+    width: 100% !important;
+    min-width: 0;
+    height: auto;
+  }
+
+  .workspace-splitter,
+  .stack-splitter {
+    display: none;
+  }
+
+  .stack-pane {
+    height: auto !important;
+    min-height: 320px;
+  }
 }
 
 table {

@@ -39,12 +39,13 @@ class GeneratePlanPipeline:
     def __init__(
         self,
         llm_provider: str = "mock",
+        llm_model: str | None = None,
         output_dir: str | Path = "outputs",
         scenes_dir: str | Path = "scenes",
     ):
         self._abstractor = SceneAbstractor()
         self._affordance = AffordanceAnalyzer()
-        self._llm_client = create_llm_client(llm_provider)
+        self._llm_client = create_llm_client(llm_provider, model=llm_model)
         self._generator = DirectingPlanGenerator(self._llm_client)
         self._validator = PlanValidator()
         self._solver = TrajectorySolver()
