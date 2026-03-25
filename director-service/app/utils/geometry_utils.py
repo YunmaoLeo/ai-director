@@ -155,3 +155,208 @@ def centroid(positions: Sequence[Vec3]) -> Vec3:
     sy = sum(p[1] for p in positions)
     sz = sum(p[2] for p in positions)
     return (sx / n, sy / n, sz / n)
+
+
+# --- Temporal geometry utilities ---
+
+
+def interpolate_track_at_time(
+    samples: list[dict],
+    timestamp: float,
+) -> Vec3:
+    """Interpolate position from track samples at a given timestamp.
+
+    Each sample dict must have 'timestamp' and 'position' keys.
+    Returns linearly interpolated position.
+    """
+    if not samples:
+        return (0.0, 0.0, 0.0)
+    if len(samples) == 1:
+        pos = samples[0]["position"]
+        return (float(pos[0]), float(pos[1]), float(pos[2]))
+
+    # Clamp to range
+    if timestamp <= samples[0]["timestamp"]:
+        pos = samples[0]["position"]
+        return (float(pos[0]), float(pos[1]), float(pos[2]))
+    if timestamp >= samples[-1]["timestamp"]:
+        pos = samples[-1]["position"]
+        return (float(pos[0]), float(pos[1]), float(pos[2]))
+
+    # Find bracketing samples
+    for i in range(len(samples) - 1):
+        t0 = samples[i]["timestamp"]
+        t1 = samples[i + 1]["timestamp"]
+        if t0 <= timestamp <= t1:
+            dt = t1 - t0
+            if dt < 1e-9:
+                pos = samples[i]["position"]
+                return (float(pos[0]), float(pos[1]), float(pos[2]))
+            t = (timestamp - t0) / dt
+            p0 = samples[i]["position"]
+            p1 = samples[i + 1]["position"]
+            return vec3_lerp(
+                (float(p0[0]), float(p0[1]), float(p0[2])),
+                (float(p1[0]), float(p1[1]), float(p1[2])),
+                t,
+            )
+
+    pos = samples[-1]["position"]
+    return (float(pos[0]), float(pos[1]), float(pos[2]))
+
+
+def compute_motion_descriptor(samples: list[dict]) -> dict:
+    """Compute motion statistics from track samples.
+
+    Returns a dict with keys: average_speed, max_speed, direction_trend,
+    acceleration_bucket, total_displacement.
+    """
+    if len(samples) < 2:
+        return {
+            "average_speed": 0.0,
+            "max_speed": 0.0,
+            "direction_trend": (0.0, 0.0, 0.0),
+            "acceleration_bucket": "constant",
+            "total_displacement": 0.0,
+        }
+
+    speeds: list[float] = []
+    total_distance = 0.0
+    for i in range(1, len(samples)):
+        p0 = samples[i - 1]["position"]
+        p1 = samples[i]["position"]
+        dt = samples[i]["timestamp"] - samples[i - 1]["timestamp"]
+        d = vec3_distance(
+            (float(p0[0]), float(p0[1]), float(p0[2])),
+            (float(p1[0]), float(p1[1]), float(p1[2])),
+        )
+        total_distance += d
+        speed = d / max(dt, 1e-9)
+        speeds.append(speed)
+
+    first_pos = samples[0]["position"]
+    last_pos = samples[-1]["position"]
+    displacement_vec = vec3_sub(
+        (float(last_pos[0]), float(last_pos[1]), float(last_pos[2])),
+        (float(first_pos[0]), float(first_pos[1]), float(first_pos[2])),
+    )
+    total_displacement = vec3_length(displacement_vec)
+    direction_trend = vec3_normalize(displacement_vec) if total_displacement > 1e-6 else (0.0, 0.0, 0.0)
+
+    avg_speed = sum(speeds) / len(speeds) if speeds else 0.0
+    max_speed = max(speeds) if speeds else 0.0
+
+    # Acceleration bucket: compare first-half vs second-half average speed
+    half = len(speeds) // 2
+    if half > 0:
+        first_half_avg = sum(speeds[:half]) / half
+        second_half_avg = sum(speeds[half:]) / max(len(speeds) - half, 1)
+        ratio = second_half_avg / max(first_half_avg, 1e-9)
+        if ratio > 1.3:
+            accel_bucket = "accelerating"
+        elif ratio < 0.7:
+            accel_bucket = "decelerating"
+        else:
+            accel_bucket = "constant"
+    else:
+        accel_bucket = "constant"
+
+    return {
+        "average_speed": round(avg_speed, 4),
+        "max_speed": round(max_speed, 4),
+        "direction_trend": direction_trend,
+        "acceleration_bucket": accel_bucket,
+        "total_displacement": round(total_displacement, 4),
+    }
+
+
+def detect_keyframes(
+    samples: list[dict],
+    angle_threshold: float = 0.5,
+    speed_threshold: float = 0.3,
+) -> list[int]:
+    """Detect keyframe indices where direction or speed changes significantly.
+
+    Returns indices into the samples list.
+    """
+    if len(samples) < 3:
+        return list(range(len(samples)))
+
+    keyframes = [0]
+
+    for i in range(1, len(samples) - 1):
+        p_prev = samples[i - 1]["position"]
+        p_curr = samples[i]["position"]
+        p_next = samples[i + 1]["position"]
+
+        d1 = vec3_sub(
+            (float(p_curr[0]), float(p_curr[1]), float(p_curr[2])),
+            (float(p_prev[0]), float(p_prev[1]), float(p_prev[2])),
+        )
+        d2 = vec3_sub(
+            (float(p_next[0]), float(p_next[1]), float(p_next[2])),
+            (float(p_curr[0]), float(p_curr[1]), float(p_curr[2])),
+        )
+        len1 = vec3_length(d1)
+        len2 = vec3_length(d2)
+
+        # Direction change check
+        if len1 > 1e-6 and len2 > 1e-6:
+            dot = vec3_dot(d1, d2) / (len1 * len2)
+            dot = max(-1.0, min(1.0, dot))
+            angle = math.acos(dot)
+            if angle > angle_threshold:
+                keyframes.append(i)
+                continue
+
+        # Speed change check
+        dt1 = samples[i]["timestamp"] - samples[i - 1]["timestamp"]
+        dt2 = samples[i + 1]["timestamp"] - samples[i]["timestamp"]
+        speed1 = len1 / max(dt1, 1e-9)
+        speed2 = len2 / max(dt2, 1e-9)
+        avg_speed = (speed1 + speed2) / 2
+        if avg_speed > 1e-6 and abs(speed2 - speed1) / avg_speed > speed_threshold:
+            keyframes.append(i)
+
+    keyframes.append(len(samples) - 1)
+    return keyframes
+
+
+def gaussian_smooth_points(points: list[Vec3], sigma: float = 1.0) -> list[Vec3]:
+    """Apply Gaussian smoothing to a list of 3D points."""
+    if len(points) < 3 or sigma <= 0:
+        return list(points)
+
+    # Build Gaussian kernel
+    kernel_size = max(3, int(sigma * 4) | 1)  # Ensure odd
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    half = kernel_size // 2
+
+    kernel = []
+    for k in range(-half, half + 1):
+        kernel.append(math.exp(-0.5 * (k / sigma) ** 2))
+    kernel_sum = sum(kernel)
+    kernel = [k / kernel_sum for k in kernel]
+
+    smoothed: list[Vec3] = []
+    n = len(points)
+    for i in range(n):
+        sx, sy, sz = 0.0, 0.0, 0.0
+        w_total = 0.0
+        for j_offset, w in enumerate(kernel):
+            idx = i + j_offset - half
+            idx = max(0, min(n - 1, idx))
+            sx += points[idx][0] * w
+            sy += points[idx][1] * w
+            sz += points[idx][2] * w
+            w_total += w
+        if w_total > 0:
+            smoothed.append((sx / w_total, sy / w_total, sz / w_total))
+        else:
+            smoothed.append(points[i])
+
+    # Preserve endpoints
+    smoothed[0] = points[0]
+    smoothed[-1] = points[-1]
+    return smoothed

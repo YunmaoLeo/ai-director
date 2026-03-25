@@ -36,7 +36,7 @@ _RECOMMENDED_OPENAI_CHAT_MODELS: list[str] = [
 
 class LLMClient(ABC):
     @abstractmethod
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, system_prompt: str, user_prompt: str, model_override: str | None = None) -> str:
         """Return raw LLM response text (expected to be JSON)."""
         ...
 
@@ -44,7 +44,7 @@ class LLMClient(ABC):
 class MockLLMClient(LLMClient):
     """Template-based mock that parses the prompt to produce realistic plans."""
 
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, system_prompt: str, user_prompt: str, model_override: str | None = None) -> str:
         scene_id = self._extract_scene_id(user_prompt)
         intent = self._extract_intent(user_prompt)
         object_ids = self._extract_object_ids(user_prompt)
@@ -277,15 +277,16 @@ class OpenAILLMClient(LLMClient):
         self._model = resolve_openai_chat_model(model or settings.llm_model or "gpt-4o")
         self._client = OpenAI(api_key=api_key or settings.llm_api_key)
 
-    def generate(self, system_prompt: str, user_prompt: str) -> str:
-        logger.info("Calling OpenAI model=%s ...", self._model)
+    def generate(self, system_prompt: str, user_prompt: str, model_override: str | None = None) -> str:
+        effective_model = resolve_openai_chat_model(model_override) if model_override else self._model
+        logger.info("Calling OpenAI model=%s ...", effective_model)
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
         try:
             response = self._client.chat.completions.create(
-                model=self._model,
+                model=effective_model,
                 messages=messages,
                 temperature=0.7,
                 response_format={"type": "json_object"},
@@ -293,10 +294,10 @@ class OpenAILLMClient(LLMClient):
         except Exception as first_error:
             logger.warning(
                 "Primary chat.completions request failed for model=%s (%s). Retrying with compatible fallback.",
-                self._model,
+                effective_model,
                 first_error,
             )
-            response = self._retry_compatible_request(messages, first_error)
+            response = self._retry_compatible_request(messages, first_error, effective_model)
         content = response.choices[0].message.content or ""
         logger.info(
             "OpenAI response received (%d chars, tokens: %s prompt + %s completion)",
@@ -306,13 +307,14 @@ class OpenAILLMClient(LLMClient):
         )
         return content
 
-    def _retry_compatible_request(self, messages: list[dict], first_error: Exception):
+    def _retry_compatible_request(self, messages: list[dict], first_error: Exception, model: str | None = None):
+        effective = model or self._model
         # Retry strategy:
         # 1) Keep JSON response format but remove temperature (some GPT-5 chat models enforce default temp)
         # 2) Remove both response_format and temperature as last compatibility fallback
         try:
             return self._client.chat.completions.create(
-                model=self._model,
+                model=effective,
                 messages=messages,
                 response_format={"type": "json_object"},
             )
@@ -320,17 +322,235 @@ class OpenAILLMClient(LLMClient):
             logger.warning(
                 "Second compatibility retry failed for model=%s (%s). "
                 "Retrying without response_format and temperature.",
-                self._model,
+                effective,
                 second_error,
             )
             try:
                 return self._client.chat.completions.create(
-                    model=self._model,
+                    model=effective,
                     messages=messages,
                 )
             except Exception:
                 # Bubble up the original first error context for easier debugging.
                 raise first_error
+
+
+class MockTemporalLLMClient(LLMClient):
+    """Mock LLM client for temporal multi-pass planning.
+
+    Detects the pass type from prompt content and returns valid temporal JSON.
+    """
+
+    def generate(self, system_prompt: str, user_prompt: str, model_override: str | None = None) -> str:
+        prompt_lower = user_prompt.lower()
+
+        if "style selection task" in prompt_lower or "pre-pass" in prompt_lower:
+            return self._style_response(user_prompt)
+        if "global beat planning" in prompt_lower or "pass 1 of 3" in prompt_lower:
+            return self._beat_response(user_prompt)
+        elif "shot intent planning" in prompt_lower or "pass 2 of 3" in prompt_lower:
+            return self._shot_response(user_prompt)
+        elif "constraint critique" in prompt_lower or "pass 3 of 3" in prompt_lower:
+            return self._critique_response(user_prompt)
+        else:
+            return self._beat_response(user_prompt)
+
+    def _style_response(self, prompt: str) -> str:
+        prompt_lower = prompt.lower()
+        if any(token in prompt_lower for token in ["f1", "race", "racing", "motorsport", "lap", "overtake"]):
+            style_profile = "motorsport_f1"
+            style_rationale = "Intent and replay imply fast race-like tracking with broadcast pacing."
+            style_notes = "Prioritize readable speed, anticipatory framing, and continuity on the lead subject."
+        elif any(token in prompt_lower for token in ["match", "sport", "stadium", "broadcast"]):
+            style_profile = "sports_broadcast"
+            style_rationale = "Action-oriented coverage benefits from sports broadcast style."
+            style_notes = "Keep action centered and maintain contextual continuity."
+        elif any(token in prompt_lower for token in ["emotion", "dramatic", "story", "cinematic"]):
+            style_profile = "cinematic_drama"
+            style_rationale = "Narrative-oriented language suggests dramatic cinematic style."
+            style_notes = "Use deliberate reveal and transition pacing."
+        else:
+            style_profile = "default"
+            style_rationale = "No dominant genre signal; default style is safest."
+            style_notes = "Keep motion coherent and subject readability high."
+        return json.dumps(
+            {
+                "style_profile": style_profile,
+                "style_rationale": style_rationale,
+                "style_notes": style_notes,
+            },
+            indent=2,
+        )
+
+    def _beat_response(self, prompt: str) -> str:
+        time_start, time_end = self._extract_time_span(prompt)
+        duration = time_end - time_start
+        subjects = self._extract_subject_ids(prompt)
+        mid = time_start + duration / 2
+
+        beats = [
+            {
+                "beat_id": "beat_1",
+                "time_start": time_start,
+                "time_end": mid,
+                "goal": "Establish the scene and introduce subjects",
+                "mood": "calm",
+                "subjects": subjects[:2] if subjects else ["room"],
+            },
+            {
+                "beat_id": "beat_2",
+                "time_start": mid,
+                "time_end": time_end,
+                "goal": "Focus on key action and resolve",
+                "mood": "dramatic",
+                "subjects": subjects[:2] if subjects else ["room"],
+            },
+        ]
+        return json.dumps({"beats": beats}, indent=2)
+
+    def _shot_response(self, prompt: str) -> str:
+        time_start, time_end = self._extract_time_span(prompt)
+        duration = time_end - time_start
+        subjects = self._extract_subject_ids(prompt)
+        primary = subjects[0] if subjects else "room"
+        third = duration / 3
+        is_f1_style = "style_profile=motorsport_f1" in prompt.lower() or "motorsport_f1" in prompt.lower()
+
+        if is_f1_style:
+            shots = [
+                {
+                    "shot_id": "shot_1",
+                    "time_start": time_start,
+                    "time_end": time_start + third,
+                    "goal": "Race-context opener with speed readability",
+                    "subject": "room",
+                    "shot_type": "wide",
+                    "movement": "arc",
+                    "pacing": "dramatic",
+                    "constraints": {"maintain_room_readability": True},
+                    "rationale": "Broadcast-like opener for track context",
+                    "transition_in": "cut",
+                    "beat_id": "beat_1",
+                },
+                {
+                    "shot_id": "shot_2",
+                    "time_start": time_start + third,
+                    "time_end": time_start + 2 * third,
+                    "goal": f"Primary tracking pass on {primary}",
+                    "subject": primary,
+                    "shot_type": "medium",
+                    "movement": "lateral_slide",
+                    "pacing": "dramatic",
+                    "constraints": {"avoid_occlusion": True},
+                    "rationale": "Lateral race-follow behavior",
+                    "transition_in": "smooth",
+                    "beat_id": "beat_1",
+                },
+                {
+                    "shot_id": "shot_3",
+                    "time_start": time_start + 2 * third,
+                    "time_end": time_end,
+                    "goal": f"Finish with directional pan on {primary}",
+                    "subject": primary,
+                    "shot_type": "reveal",
+                    "movement": "pan",
+                    "pacing": "dramatic",
+                    "constraints": {"end_on_subject": True, "avoid_occlusion": True},
+                    "rationale": "Broadcast-style finish preserving continuity",
+                    "transition_in": "match_cut",
+                    "beat_id": "beat_2",
+                },
+            ]
+        else:
+            shots = [
+                {
+                    "shot_id": "shot_1",
+                    "time_start": time_start,
+                    "time_end": time_start + third,
+                    "goal": "Establish the scene layout",
+                    "subject": "room",
+                    "shot_type": "establishing",
+                    "movement": "slow_forward",
+                    "pacing": "calm",
+                    "constraints": {},
+                    "rationale": "Opening establishing shot",
+                    "transition_in": "cut",
+                    "beat_id": "beat_1",
+                },
+                {
+                    "shot_id": "shot_2",
+                    "time_start": time_start + third,
+                    "time_end": time_start + 2 * third,
+                    "goal": f"Track {primary} movement",
+                    "subject": primary,
+                    "shot_type": "medium",
+                    "movement": "lateral_slide",
+                    "pacing": "steady",
+                    "constraints": {"avoid_occlusion": True},
+                    "rationale": "Follow the primary subject",
+                    "transition_in": "smooth",
+                    "beat_id": "beat_1",
+                },
+                {
+                    "shot_id": "shot_3",
+                    "time_start": time_start + 2 * third,
+                    "time_end": time_end,
+                    "goal": f"Close on {primary}",
+                    "subject": primary,
+                    "shot_type": "close_up",
+                    "movement": "slow_forward",
+                    "pacing": "dramatic",
+                    "constraints": {"end_on_subject": True},
+                    "rationale": "Dramatic close to emphasize subject",
+                    "transition_in": "smooth",
+                    "beat_id": "beat_2",
+                },
+            ]
+        return json.dumps({"shots": shots}, indent=2)
+
+    def _critique_response(self, prompt: str) -> str:
+        # Parse existing shots from the prompt and return them unchanged
+        import re as _re
+        m = _re.search(r'"shots"\s*:\s*\[', prompt)
+        if m:
+            # Try to extract the shots JSON from the prompt
+            start = prompt.find("[", m.start())
+            if start != -1:
+                depth = 0
+                for i in range(start, len(prompt)):
+                    if prompt[i] == "[":
+                        depth += 1
+                    elif prompt[i] == "]":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                shots = json.loads(prompt[start:i + 1])
+                                return json.dumps({"shots": shots}, indent=2)
+                            except json.JSONDecodeError:
+                                break
+        # Fallback: return the shot response
+        return self._shot_response(prompt)
+
+    def _extract_time_span(self, prompt: str) -> tuple[float, float]:
+        import re as _re
+        m = _re.search(r"Time Span:\s*([\d.]+)s\s+to\s+([\d.]+)s", prompt)
+        if m:
+            return float(m.group(1)), float(m.group(2))
+        m = _re.search(r"([\d.]+)s\s+to\s+([\d.]+)s", prompt)
+        if m:
+            return float(m.group(1)), float(m.group(2))
+        return 0.0, 10.0
+
+    def _extract_subject_ids(self, prompt: str) -> list[str]:
+        import re as _re
+        ids: list[str] = []
+        for line in prompt.split("\n"):
+            m = _re.match(r"- (\w+)\s+\(", line.strip())
+            if m:
+                obj_id = m.group(1)
+                if obj_id not in ("No", "none"):
+                    ids.append(obj_id)
+        return ids
 
 
 def create_llm_client(

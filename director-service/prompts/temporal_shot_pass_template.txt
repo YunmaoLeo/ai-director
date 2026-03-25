@@ -1,0 +1,54 @@
+## Scene Information
+
+Scene: {scene_name} ({scene_type})
+Dimensions: {width}m x {length}m x {height}m
+Time Span: {time_start}s to {time_end}s ({duration}s total)
+
+### Static Objects
+{objects_text}
+
+### Moving Subjects
+{subject_profiles_text}
+
+### Events
+{event_summary}
+
+### Occlusion Risks
+{occlusion_risks_text}
+
+### Reveal Opportunities
+{reveal_opportunities_text}
+
+## Beats (from Pass 1)
+{beats_text}
+
+## Task: Shot Intent Planning (Pass 2 of 3)
+
+For each beat, define 1-3 specific camera shots. Each shot covers a time window within its beat.
+
+Output a JSON object with:
+- shots: array of shot objects
+
+Each shot must have:
+- shot_id: unique identifier (e.g., "shot_1")
+- time_start: start time in seconds
+- time_end: end time in seconds
+- goal: what this shot achieves
+- subject: main subject (must be a valid object id or "room")
+- shot_type: one of the allowed types
+- movement: one of the allowed movement types
+- pacing: one of the allowed pacing values
+- constraints: object with optional fields
+- rationale: why this shot is included
+- transition_in: transition from previous shot
+- beat_id: which beat this shot belongs to
+
+Guidelines:
+- Shots must stay within their beat's time window
+- Subject must be visible during the shot's time window
+- Avoid shots during high occlusion risk windows, or use them dramatically
+- Leverage reveal opportunities for reveal or dramatic shots
+- Minimum shot duration: 1.5s
+- Total shots should cover the full timeline without large gaps
+
+Output ONLY valid JSON.

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SceneListItem, SceneSummary, GenerateResponse } from './types';
+import type { SceneListItem, SceneSummary, GenerateResponse, TemporalGenerateResponse } from './types';
 import { fetchScenes, fetchScene, generatePlan } from './lib/api';
 import ScenePanel from './panels/ScenePanel';
 import AbstractionPanel from './panels/AbstractionPanel';
@@ -8,11 +8,15 @@ import DirectingPlanPanel from './panels/DirectingPlanPanel';
 import TrajectoryPanel from './panels/TrajectoryPanel';
 import OutputPanel from './panels/OutputPanel';
 
+export type AppMode = 'static' | 'temporal';
+
 export default function App() {
+  const [mode, setMode] = useState<AppMode>('static');
   const [scenes, setScenes] = useState<SceneListItem[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string>('');
   const [scene, setScene] = useState<SceneSummary | null>(null);
   const [result, setResult] = useState<GenerateResponse | null>(null);
+  const [temporalResult] = useState<TemporalGenerateResponse | null>(null);
   const [resultHistory, setResultHistory] = useState<GenerateResponse[]>([]);
   const [intentHistory, setIntentHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -156,6 +160,22 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>AI Director</h1>
+        <div className="tag-list" style={{ marginRight: 8 }}>
+          <button
+            type="button"
+            className={`tag-button ${mode === 'static' ? 'active' : ''}`}
+            onClick={() => setMode('static')}
+          >
+            Static
+          </button>
+          <button
+            type="button"
+            className={`tag-button ${mode === 'temporal' ? 'active' : ''}`}
+            onClick={() => setMode('temporal')}
+          >
+            Temporal
+          </button>
+        </div>
         <button type="button" onClick={() => loadScenes()}>
           Refresh Scenes
         </button>
@@ -200,6 +220,8 @@ export default function App() {
               scene={scene}
               trajectory={result?.trajectory_plan ?? null}
               selectedShotId={selectedShotId}
+              mode={mode}
+              temporalResult={temporalResult}
             />
           </div>
         </div>
@@ -231,7 +253,7 @@ export default function App() {
               </div>
               <div className="stack-splitter stack-splitter-thin" />
               <div className="sub-pane" style={{ height: '46%' }}>
-                <OutputPanel result={result} history={resultHistory} onLoadSavedRun={handleLoadSavedRun} />
+                <OutputPanel result={result} history={resultHistory} onLoadSavedRun={handleLoadSavedRun} mode={mode} temporalResult={temporalResult} />
               </div>
             </div>
           </div>

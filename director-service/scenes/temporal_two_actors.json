@@ -1,0 +1,118 @@
+{
+  "scene_id": "temporal_two_actors",
+  "scene_name": "Two Actors Meeting",
+  "scene_type": "interior",
+  "description": "Two actors approach each other and interact at the center of the room.",
+  "bounds": {
+    "width": 10.0,
+    "length": 10.0,
+    "height": 3.0
+  },
+  "time_span": {
+    "start": 0.0,
+    "end": 12.0,
+    "duration": 12.0
+  },
+  "objects_static": [
+    {
+      "id": "sofa",
+      "name": "Sofa",
+      "category": "furniture",
+      "position": [2.0, 0.4, 8.0],
+      "size": [2.0, 0.8, 1.0],
+      "importance": 0.4,
+      "tags": ["anchor"]
+    },
+    {
+      "id": "bookshelf",
+      "name": "Bookshelf",
+      "category": "furniture",
+      "position": [9.0, 1.0, 5.0],
+      "size": [0.5, 2.0, 1.5],
+      "importance": 0.3,
+      "tags": ["detail"]
+    },
+    {
+      "id": "actor_a",
+      "name": "Actor A",
+      "category": "character",
+      "position": [2.0, 0.0, 2.0],
+      "size": [0.5, 1.8, 0.5],
+      "importance": 0.9,
+      "tags": ["character"]
+    },
+    {
+      "id": "actor_b",
+      "name": "Actor B",
+      "category": "character",
+      "position": [8.0, 0.0, 8.0],
+      "size": [0.5, 1.8, 0.5],
+      "importance": 0.85,
+      "tags": ["character"]
+    }
+  ],
+  "object_tracks": [
+    {
+      "object_id": "actor_a",
+      "samples": [
+        {"timestamp": 0.0, "position": [2.0, 0.0, 2.0], "rotation": [0, 0, 0], "velocity": [0.5, 0, 0.5], "visible": true},
+        {"timestamp": 2.0, "position": [3.0, 0.0, 3.0], "rotation": [0, 0, 0], "velocity": [0.5, 0, 0.5], "visible": true},
+        {"timestamp": 4.0, "position": [4.0, 0.0, 4.0], "rotation": [0, 0, 0], "velocity": [0.5, 0, 0.5], "visible": true},
+        {"timestamp": 6.0, "position": [5.0, 0.0, 5.0], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 8.0, "position": [5.0, 0.0, 5.0], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 10.0, "position": [5.0, 0.0, 5.0], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 12.0, "position": [5.0, 0.0, 5.0], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true}
+      ],
+      "motion": {
+        "average_speed": 0.35,
+        "max_speed": 0.71,
+        "direction_trend": [0.71, 0.0, 0.71],
+        "acceleration_bucket": "decelerating",
+        "total_displacement": 4.24
+      },
+      "keyframe_indices": [0, 3, 6]
+    },
+    {
+      "object_id": "actor_b",
+      "samples": [
+        {"timestamp": 0.0, "position": [8.0, 0.0, 8.0], "rotation": [0, 0, 0], "velocity": [-0.5, 0, -0.5], "visible": true},
+        {"timestamp": 2.0, "position": [7.0, 0.0, 7.0], "rotation": [0, 0, 0], "velocity": [-0.5, 0, -0.5], "visible": true},
+        {"timestamp": 4.0, "position": [6.0, 0.0, 6.0], "rotation": [0, 0, 0], "velocity": [-0.5, 0, -0.5], "visible": true},
+        {"timestamp": 6.0, "position": [5.5, 0.0, 5.5], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 8.0, "position": [5.5, 0.0, 5.5], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 10.0, "position": [5.5, 0.0, 5.5], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true},
+        {"timestamp": 12.0, "position": [5.5, 0.0, 5.5], "rotation": [0, 0, 0], "velocity": [0.0, 0, 0.0], "visible": true}
+      ],
+      "motion": {
+        "average_speed": 0.3,
+        "max_speed": 0.71,
+        "direction_trend": [-0.71, 0.0, -0.71],
+        "acceleration_bucket": "decelerating",
+        "total_displacement": 3.54
+      },
+      "keyframe_indices": [0, 3, 6]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "evt_1",
+      "event_type": "interaction",
+      "timestamp": 6.0,
+      "duration": 6.0,
+      "object_ids": ["actor_a", "actor_b"],
+      "description": "Actors meet and begin conversation"
+    }
+  ],
+  "camera_candidates": [
+    {
+      "region_id": "cam_wide",
+      "time_start": 0.0,
+      "time_end": 12.0,
+      "center": [5.0, 1.5, 0.5],
+      "radius": 3.0,
+      "clearance_score": 0.9
+    }
+  ],
+  "relations": [],
+  "free_space": null
+}

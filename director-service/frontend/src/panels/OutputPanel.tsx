@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
-import type { GenerateResponse, RunSummary } from '../types';
+import type { GenerateResponse, RunSummary, TemporalGenerateResponse } from '../types';
 import JsonViewer from '../components/JsonViewer';
 import ValidationBadge from '../components/ValidationBadge';
+import PassArtifactViewer from '../components/PassArtifactViewer';
 import { fetchRun, fetchRuns } from '../lib/api';
+import type { AppMode } from '../App';
 
 interface Props {
   result: GenerateResponse | null;
   history: GenerateResponse[];
   onLoadSavedRun: (run: GenerateResponse) => void;
+  mode?: AppMode;
+  temporalResult?: TemporalGenerateResponse | null;
 }
 
-type Tab = 'directing_plan' | 'trajectory_plan' | 'validation';
+type Tab = 'directing_plan' | 'trajectory_plan' | 'validation' | 'pass_artifacts';
 
-export default function OutputPanel({ result, history, onLoadSavedRun }: Props) {
+export default function OutputPanel({ result, history, onLoadSavedRun, mode = 'static', temporalResult }: Props) {
   const [tab, setTab] = useState<Tab>('directing_plan');
   const [historyIdx, setHistoryIdx] = useState<number | null>(null);
   const [savedRuns, setSavedRuns] = useState<RunSummary[]>([]);
@@ -50,47 +54,71 @@ export default function OutputPanel({ result, history, onLoadSavedRun }: Props) 
         <>
           <div className="tab-bar">
             <button className={tab === 'directing_plan' ? 'active' : ''} onClick={() => setTab('directing_plan')}>
-              Directing Plan
+              {mode === 'temporal' ? 'Temporal Plan' : 'Directing Plan'}
             </button>
             <button className={tab === 'trajectory_plan' ? 'active' : ''} onClick={() => setTab('trajectory_plan')}>
-              Trajectory Plan
+              {mode === 'temporal' ? 'Temporal Trajectory' : 'Trajectory Plan'}
             </button>
             <button className={tab === 'validation' ? 'active' : ''} onClick={() => setTab('validation')}>
               Validation
             </button>
+            {mode === 'temporal' && temporalResult?.pass_artifacts && (
+              <button className={tab === 'pass_artifacts' ? 'active' : ''} onClick={() => setTab('pass_artifacts')}>
+                Pass Artifacts
+              </button>
+            )}
           </div>
 
-          {tab === 'directing_plan' && <JsonViewer data={displayResult.directing_plan} />}
-          {tab === 'trajectory_plan' && <JsonViewer data={displayResult.trajectory_plan} />}
+          {tab === 'directing_plan' && (
+            mode === 'temporal' && temporalResult
+              ? <JsonViewer data={temporalResult.temporal_directing_plan} />
+              : <JsonViewer data={displayResult.directing_plan} />
+          )}
+          {tab === 'trajectory_plan' && (
+            mode === 'temporal' && temporalResult
+              ? <JsonViewer data={temporalResult.temporal_trajectory_plan} />
+              : <JsonViewer data={displayResult.trajectory_plan} />
+          )}
           {tab === 'validation' && (
             <div>
-              {displayResult.validation_report.errors.length > 0 && (
-                <div className="validation-section">
-                  <h4>Errors</h4>
-                  {displayResult.validation_report.errors.map((e, i) => (
-                    <div key={i} className="validation-issue error">
-                      <strong>[{e.category}]</strong> {e.message}
-                      {e.field && <code> ({e.field})</code>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {displayResult.validation_report.warnings.length > 0 && (
-                <div className="validation-section">
-                  <h4>Warnings</h4>
-                  {displayResult.validation_report.warnings.map((w, i) => (
-                    <div key={i} className="validation-issue warning">
-                      <strong>[{w.category}]</strong> {w.message}
-                      {w.field && <code> ({w.field})</code>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {displayResult.validation_report.errors.length === 0 &&
-               displayResult.validation_report.warnings.length === 0 && (
-                <p className="muted">No validation issues found.</p>
-              )}
+              {(() => {
+                const report = mode === 'temporal' && temporalResult
+                  ? temporalResult.validation_report
+                  : displayResult.validation_report;
+                return (
+                  <>
+                    {report.errors.length > 0 && (
+                      <div className="validation-section">
+                        <h4>Errors</h4>
+                        {report.errors.map((e, i) => (
+                          <div key={i} className="validation-issue error">
+                            <strong>[{e.category}]</strong> {e.message}
+                            {e.field && <code> ({e.field})</code>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {report.warnings.length > 0 && (
+                      <div className="validation-section">
+                        <h4>Warnings</h4>
+                        {report.warnings.map((w, i) => (
+                          <div key={i} className="validation-issue warning">
+                            <strong>[{w.category}]</strong> {w.message}
+                            {w.field && <code> ({w.field})</code>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {report.errors.length === 0 && report.warnings.length === 0 && (
+                      <p className="muted">No validation issues found.</p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
+          )}
+          {tab === 'pass_artifacts' && mode === 'temporal' && temporalResult?.pass_artifacts && (
+            <PassArtifactViewer artifacts={temporalResult.pass_artifacts} />
           )}
         </>
       )}

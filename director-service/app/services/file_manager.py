@@ -9,6 +9,10 @@ from app.models.scene_summary import SceneSummary
 from app.models.directing_plan import DirectingPlan
 from app.models.trajectory_plan import TrajectoryPlan
 from app.models.validation_report import ValidationReport
+from app.models.scene_timeline import SceneTimeline
+from app.models.temporal_directing_plan import TemporalDirectingPlan
+from app.models.temporal_trajectory_plan import TemporalTrajectoryPlan
+from app.models.planning_pass import PlanningPassArtifact
 from app.utils.json_utils import load_json, save_json, pydantic_to_json
 from app.utils.logger import get_logger
 
@@ -132,6 +136,99 @@ class FileManager:
             "source_api": metadata.get("source_api"),
             "saved_at": metadata.get("created_at"),
         }
+
+    # --- Temporal file operations ---
+
+    def save_scene_timeline(self, timeline: SceneTimeline, prefix: str = "") -> Path:
+        filename = f"{prefix}scene_timeline.json" if prefix else "scene_timeline.json"
+        path = self._output_dir / filename
+        save_json(pydantic_to_json(timeline), path)
+        logger.info("Saved scene timeline to %s", path)
+        return path
+
+    def save_temporal_directing_plan(self, plan: TemporalDirectingPlan, prefix: str = "") -> Path:
+        filename = f"{prefix}temporal_directing_plan.json" if prefix else "temporal_directing_plan.json"
+        path = self._output_dir / filename
+        save_json(pydantic_to_json(plan), path)
+        logger.info("Saved temporal directing plan to %s", path)
+        return path
+
+    def save_temporal_trajectory_plan(self, plan: TemporalTrajectoryPlan, prefix: str = "") -> Path:
+        filename = f"{prefix}temporal_trajectory_plan.json" if prefix else "temporal_trajectory_plan.json"
+        path = self._output_dir / filename
+        save_json(pydantic_to_json(plan), path)
+        logger.info("Saved temporal trajectory plan to %s", path)
+        return path
+
+    def save_pass_artifacts(self, artifacts: list[PlanningPassArtifact], prefix: str = "") -> Path:
+        filename = f"{prefix}pass_artifacts.json" if prefix else "pass_artifacts.json"
+        path = self._output_dir / filename
+        save_json([pydantic_to_json(a) for a in artifacts], path)
+        logger.info("Saved %d pass artifacts to %s", len(artifacts), path)
+        return path
+
+    def save_temporal_run_metadata(self, prefix: str, metadata: dict[str, Any]) -> Path:
+        filename = f"{prefix}temporal_run_metadata.json"
+        path = self._output_dir / filename
+        payload = {
+            "prefix": prefix,
+            "created_at": datetime.now(UTC).isoformat(),
+            "temporal": True,
+            **metadata,
+        }
+        save_json(payload, path)
+        logger.info("Saved temporal run metadata to %s", path)
+        return path
+
+    def load_temporal_run_bundle(self, prefix: str) -> dict[str, Any]:
+        """Load a temporal run bundle by prefix."""
+        normalized_prefix = self._normalize_prefix(prefix)
+        metadata_path = self._output_dir / f"{normalized_prefix}temporal_run_metadata.json"
+        directing_path = self._output_dir / f"{normalized_prefix}temporal_directing_plan.json"
+        trajectory_path = self._output_dir / f"{normalized_prefix}temporal_trajectory_plan.json"
+        validation_path = self._output_dir / f"{normalized_prefix}validation_report.json"
+        artifacts_path = self._output_dir / f"{normalized_prefix}pass_artifacts.json"
+        timeline_path = self._output_dir / f"{normalized_prefix}scene_timeline.json"
+
+        for required_path in [metadata_path, directing_path, trajectory_path, validation_path]:
+            if not required_path.exists():
+                raise FileNotFoundError(f"Missing temporal run artifact: {required_path.name}")
+
+        metadata = load_json(metadata_path)
+        result: dict[str, Any] = {
+            "temporal_directing_plan": load_json(directing_path),
+            "temporal_trajectory_plan": load_json(trajectory_path),
+            "validation_report": load_json(validation_path),
+            "output_prefix": normalized_prefix,
+            "scene_id": metadata.get("scene_id"),
+            "intent": metadata.get("intent"),
+            "llm_provider": metadata.get("llm_provider"),
+            "llm_model": metadata.get("llm_model"),
+            "cinematic_style_requested": metadata.get("cinematic_style_requested"),
+            "cinematic_style": metadata.get("cinematic_style"),
+            "style_rationale": metadata.get("style_rationale"),
+            "style_notes": metadata.get("style_notes"),
+            "saved_at": metadata.get("created_at"),
+            "temporal": True,
+        }
+        if artifacts_path.exists():
+            result["pass_artifacts"] = load_json(artifacts_path)
+        if timeline_path.exists():
+            result["scene_timeline"] = load_json(timeline_path)
+        return result
+
+    def list_temporal_runs(self) -> list[dict[str, Any]]:
+        """List temporal run bundles from temporal run metadata files."""
+        runs: list[dict[str, Any]] = []
+        for path in self._output_dir.glob("*temporal_run_metadata.json"):
+            try:
+                data = load_json(path)
+            except Exception:
+                logger.warning("Skipping invalid temporal run metadata: %s", path)
+                continue
+            runs.append(data)
+        runs.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+        return runs
 
     @staticmethod
     def build_run_prefix(scene_id: str, label: str = "") -> str:

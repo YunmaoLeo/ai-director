@@ -1,0 +1,33 @@
+## Constraint Critique (Pass 3 of 3)
+
+You are reviewing a set of temporal camera shots for correctness and quality.
+
+### Scene Time Span
+{time_start}s to {time_end}s ({duration}s total)
+
+### Available Subjects
+{objects_text}
+
+### Draft Shots
+{shots_text}
+
+### Deterministic Check Results
+{deterministic_checks_text}
+
+## Task
+
+Review the shots above and fix any issues found in the deterministic checks.
+
+Common issues to fix:
+- Shots that reference unavailable subjects during their time window
+- Time gaps between shots (add or extend shots to fill)
+- Overlapping shot time windows (adjust boundaries)
+- Shots shorter than 1.5s (extend or merge)
+- Shots extending beyond scene time_span (clip to bounds)
+
+Output a JSON object with:
+- shots: the corrected array of shot objects (same schema as input)
+
+If no changes are needed, return the shots unchanged.
+
+Output ONLY valid JSON.

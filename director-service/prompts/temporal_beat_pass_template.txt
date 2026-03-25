@@ -1,0 +1,47 @@
+## Scene Information
+
+Scene: {scene_name} ({scene_type})
+Dimensions: {width}m x {length}m x {height}m
+Time Span: {time_start}s to {time_end}s ({duration}s total)
+
+### Spatial Summary
+{spatial_summary}
+
+### Static Objects
+{objects_text}
+
+### Moving Subjects (Temporal Profiles)
+{subject_profiles_text}
+
+### Events
+{event_summary}
+
+### Spacetime Affordances
+{spacetime_affordances_text}
+
+## User Intent
+{intent}
+
+## Task: Global Beat Planning (Pass 1 of 3)
+
+Divide the timeline into narrative beats. Each beat is a coherent story segment with a goal and mood.
+
+Output a JSON object with:
+- beats: array of beat objects
+
+Each beat must have:
+- beat_id: unique identifier (e.g., "beat_1")
+- time_start: start time in seconds
+- time_end: end time in seconds
+- goal: what this beat achieves narratively
+- mood: emotional tone (e.g., "calm", "tense", "dramatic", "contemplative")
+- subjects: array of object IDs that are focus subjects during this beat
+
+Guidelines:
+- Beats must cover the full time span [{time_start}s, {time_end}s]
+- Beats should not overlap
+- 2-5 beats is typical for a {duration}s timeline
+- Align beat transitions with events when possible
+- Consider subject visibility windows
+
+Output ONLY valid JSON.

@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SceneSummary, ShotTrajectory, TrajectoryPlan } from '../types';
+import type { SceneSummary, ShotTrajectory, TrajectoryPlan, TemporalGenerateResponse, ObjectTrack } from '../types';
 import TopDownCanvas from '../components/TopDownCanvas';
 import ThreeTrajectoryPreview from '../components/ThreeTrajectoryPreview';
+import AnimatedThreePreview from '../components/AnimatedThreePreview';
+import TemporalTimeline from '../components/TemporalTimeline';
+import type { AppMode } from '../App';
 
 interface Props {
   scene: SceneSummary | null;
   trajectory: TrajectoryPlan | null;
   selectedShotId: string | null;
+  mode?: AppMode;
+  temporalResult?: TemporalGenerateResponse | null;
 }
 
-export default function TrajectoryPanel({ scene, trajectory, selectedShotId }: Props) {
+export default function TrajectoryPanel({ scene, trajectory, selectedShotId, mode = 'static', temporalResult }: Props) {
   const playbackDuration = selectedShotId
     ? trajectory?.trajectories.find(t => t.shot_id === selectedShotId)?.duration ?? 0
     : trajectory?.total_duration ?? 0;
@@ -52,6 +57,116 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId }: P
     frameId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frameId);
   }, [isPlaying, playbackDuration]);
+
+  // Temporal mode rendering
+  if (mode === 'temporal') {
+    const tempTraj = temporalResult?.temporal_trajectory_plan;
+    const tempPlan = temporalResult?.temporal_directing_plan;
+    const timeSpan = tempPlan?.time_span;
+    const objectTracks: ObjectTrack[] = [];
+
+    if (!scene || !tempTraj || !tempPlan || !timeSpan) {
+      return <div className="panel"><h3>Temporal Preview</h3><p className="muted">No temporal data</p></div>;
+    }
+
+    const totalDuration = timeSpan.duration;
+    const [tempPlayhead, setTempPlayhead] = useState(timeSpan.start);
+    const [tempPlaying, setTempPlaying] = useState(false);
+    const [tempSpeed, setTempSpeed] = useState(1);
+    const [tempPreviewMode, setTempPreviewMode] = useState<'camera' | 'observer'>('observer');
+    const tempLastFrame = useRef<number | null>(null);
+
+    useEffect(() => {
+      setTempPlayhead(timeSpan.start);
+      setTempPlaying(false);
+      tempLastFrame.current = null;
+    }, [temporalResult]);
+
+    useEffect(() => {
+      if (!tempPlaying || totalDuration <= 0) {
+        tempLastFrame.current = null;
+        return;
+      }
+      let frameId = 0;
+      const tick = (time: number) => {
+        if (tempLastFrame.current == null) tempLastFrame.current = time;
+        const delta = ((time - tempLastFrame.current) / 1000) * tempSpeed;
+        tempLastFrame.current = time;
+        setTempPlayhead(prev => {
+          const next = prev + delta;
+          if (next >= timeSpan.end) {
+            setTempPlaying(false);
+            return timeSpan.end;
+          }
+          return next;
+        });
+        frameId = window.requestAnimationFrame(tick);
+      };
+      frameId = window.requestAnimationFrame(tick);
+      return () => window.cancelAnimationFrame(frameId);
+    }, [tempPlaying, totalDuration, tempSpeed]);
+
+    return (
+      <div className="panel">
+        <h3>Temporal Preview</h3>
+        <div className="tag-list" style={{ marginBottom: 8 }}>
+          <button className="tag-button" onClick={() => setTempPlaying(p => !p)}>
+            {tempPlaying ? 'Pause' : 'Play'}
+          </button>
+          <button className="tag-button" onClick={() => { setTempPlaying(false); setTempPlayhead(timeSpan.start); }}>
+            Reset
+          </button>
+          <span className="muted">{tempPlayhead.toFixed(1)}s / {timeSpan.end.toFixed(1)}s</span>
+        </div>
+        <input
+          type="range"
+          min={timeSpan.start}
+          max={timeSpan.end}
+          step={0.01}
+          value={tempPlayhead}
+          onChange={e => { setTempPlaying(false); setTempPlayhead(Number(e.target.value)); }}
+          style={{ width: '100%', marginBottom: 8 }}
+        />
+        <TemporalTimeline
+          timeSpan={timeSpan}
+          beats={tempPlan.beats}
+          shots={tempPlan.shots}
+          events={[]}
+          playheadSeconds={tempPlayhead}
+          onSeek={t => { setTempPlaying(false); setTempPlayhead(t); }}
+          selectedShotId={selectedShotId}
+          onSelectShot={() => {}}
+          playbackSpeed={tempSpeed}
+          onSpeedChange={setTempSpeed}
+        />
+        <div className="preview-3d-block" style={{ marginTop: 8 }}>
+          <div className="preview-3d-header">
+            <span>3D Animated Preview</span>
+            <div className="tag-list" style={{ marginTop: 0 }}>
+              <button
+                className={`tag-button ${tempPreviewMode === 'camera' ? 'active' : ''}`}
+                onClick={() => setTempPreviewMode('camera')}
+              >Camera</button>
+              <button
+                className={`tag-button ${tempPreviewMode === 'observer' ? 'active' : ''}`}
+                onClick={() => setTempPreviewMode('observer')}
+              >Observer</button>
+            </div>
+          </div>
+          <AnimatedThreePreview
+            scene={scene}
+            trajectories={tempTraj.trajectories}
+            objectTracks={objectTracks}
+            playheadSeconds={tempPlayhead}
+            currentShotId={selectedShotId}
+            viewMode={tempPreviewMode}
+            width={760}
+            height={360}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (!scene || !trajectory) {
     return <div className="panel"><h3>Trajectory Preview</h3><p className="muted">No trajectory data</p></div>;

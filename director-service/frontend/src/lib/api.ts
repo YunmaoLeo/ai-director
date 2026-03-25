@@ -1,4 +1,4 @@
-import type { SceneListItem, SceneSummary, GenerateResponse, RunSummary, LlmModelsResponse } from '../types';
+import type { SceneListItem, SceneSummary, GenerateResponse, RunSummary, LlmModelsResponse, TemporalGenerateResponse, SceneTimeline } from '../types';
 
 const BASE = '/api';
 
@@ -46,5 +46,44 @@ export async function fetchRun(prefix: string): Promise<GenerateResponse> {
 export async function fetchLlmModels(): Promise<LlmModelsResponse> {
   const res = await fetch(`${BASE}/llm/models`);
   if (!res.ok) throw new Error(`Failed to fetch llm models: ${res.statusText}`);
+  return res.json();
+}
+
+// --- Temporal API ---
+
+export async function generateTemporalPlan(
+  sceneId: string,
+  intent: string,
+  sceneTimeline: SceneTimeline,
+  llmModel?: string,
+  cinematicStyle?: string,
+  styleNotes?: string,
+): Promise<TemporalGenerateResponse> {
+  const res = await fetch(`${BASE}/temporal/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      scene_id: sceneId,
+      intent,
+      scene_timeline: sceneTimeline,
+      llm_model: llmModel,
+      cinematic_style: cinematicStyle,
+      style_notes: styleNotes,
+    }),
+  });
+  if (!res.ok) throw new Error(`Failed to generate temporal plan: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchTemporalRuns(): Promise<RunSummary[]> {
+  const res = await fetch(`${BASE}/temporal/runs`);
+  if (!res.ok) throw new Error(`Failed to fetch temporal runs: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchTemporalRun(prefix: string): Promise<TemporalGenerateResponse> {
+  const encodedPrefix = encodeURIComponent(prefix);
+  const res = await fetch(`${BASE}/temporal/runs/${encodedPrefix}`);
+  if (!res.ok) throw new Error(`Failed to fetch temporal run: ${res.statusText}`);
   return res.json();
 }

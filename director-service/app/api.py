@@ -5,11 +5,14 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.models.scene_summary import SceneSummary
+from app.models.scene_timeline import SceneTimeline
 from app.pipelines.generate_plan_pipeline import GeneratePlanPipeline
+from app.pipelines.temporal_plan_pipeline import TemporalPlanPipeline
+from app.services.cinematic_style import list_style_profiles
 from app.services.file_manager import FileManager
 from app.services.llm_client import resolve_openai_chat_model, recommended_openai_chat_models
 from app.utils.json_utils import load_json, pydantic_to_json
@@ -259,3 +262,134 @@ def get_output(filename: str):
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"Output '{filename}' not found")
     return load_json(path)
+
+
+# --- Temporal endpoints ---
+
+
+class TemporalGenerateRequest(BaseModel):
+    scene_id: str
+    intent: str
+    scene_timeline: dict[str, Any]
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    cinematic_style: str | None = "auto"
+    style_notes: str | None = None
+
+
+class TemporalGenerateResponse(BaseModel):
+    temporal_directing_plan: dict
+    temporal_trajectory_plan: dict
+    validation_report: dict
+    pass_artifacts: list[dict] = Field(default_factory=list)
+    scene_timeline: dict[str, Any] | None = None
+    output_prefix: str | None = None
+    scene_id: str | None = None
+    intent: str | None = None
+    llm_provider: str | None = None
+    llm_model: str | None = None
+    cinematic_style: str | None = None
+    style_rationale: str | None = None
+    style_notes: str | None = None
+    saved_at: str | None = None
+    temporal: bool = True
+
+
+@api_app.post("/api/temporal/generate", response_model=TemporalGenerateResponse)
+def generate_temporal_plan(req: TemporalGenerateRequest):
+    """Run the full temporal pipeline: timeline -> multi-pass plan -> trajectory -> validation."""
+    try:
+        timeline = SceneTimeline.model_validate(req.scene_timeline)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid scene_timeline: {e}")
+
+    llm_provider = req.llm_provider or settings.llm_provider
+    llm_model_requested = req.llm_model or settings.llm_model
+    llm_model = resolve_openai_chat_model(llm_model_requested) if llm_provider == "openai" else llm_model_requested
+
+    pipeline = TemporalPlanPipeline(
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        output_dir=str(settings.output_dir),
+        scenes_dir=str(settings.scenes_dir),
+    )
+
+    prefix = _file_manager.build_run_prefix(req.scene_id, "temporal")
+
+    requested_style = (req.cinematic_style or "auto").strip().lower()
+    try:
+        result = pipeline.run(
+            timeline,
+            req.intent,
+            save=True,
+            prefix=prefix,
+            style_profile=requested_style,
+            style_notes=req.style_notes,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    metadata = {
+        "scene_id": req.scene_id,
+        "intent": req.intent,
+        "llm_provider": llm_provider,
+        "llm_model": llm_model,
+        "cinematic_style_requested": requested_style,
+        "cinematic_style": result.cinematic_style,
+        "style_rationale": result.style_rationale,
+        "style_notes": req.style_notes,
+    }
+    metadata_path = _file_manager.save_temporal_run_metadata(prefix, metadata)
+    saved_at = load_json(metadata_path).get("created_at")
+
+    return TemporalGenerateResponse(
+        temporal_directing_plan=pydantic_to_json(result.temporal_directing_plan),
+        temporal_trajectory_plan=pydantic_to_json(result.temporal_trajectory_plan),
+        validation_report=pydantic_to_json(result.validation_report),
+        pass_artifacts=[pydantic_to_json(a) for a in result.pass_artifacts],
+        scene_timeline=pydantic_to_json(result.timeline),
+        output_prefix=prefix,
+        scene_id=req.scene_id,
+        intent=req.intent,
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        cinematic_style=result.cinematic_style,
+        style_rationale=result.style_rationale,
+        style_notes=req.style_notes,
+        saved_at=saved_at,
+    )
+
+
+@api_app.post("/api/unity/temporal/generate", response_model=TemporalGenerateResponse)
+def generate_temporal_plan_from_unity(req: TemporalGenerateRequest):
+    """Generate temporal plan from a Unity-uploaded scene timeline."""
+    return generate_temporal_plan(req)
+
+
+@api_app.get("/api/temporal/runs")
+def list_temporal_runs():
+    """List saved temporal run bundles."""
+    return _file_manager.list_temporal_runs()
+
+
+@api_app.get("/api/temporal/runs/{prefix}")
+def get_temporal_run(prefix: str):
+    """Load a saved temporal run bundle by output prefix."""
+    try:
+        bundle = _file_manager.load_temporal_run_bundle(prefix)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return bundle
+
+
+@api_app.get("/api/temporal/styles")
+def list_temporal_styles():
+    """List supported cinematic style profiles for temporal planning."""
+    return {
+        "default": "auto",
+        "selection_modes": ["auto", "manual_override"],
+        "profiles": list_style_profiles(),
+        "recommended_for_racing": "motorsport_f1",
+    }

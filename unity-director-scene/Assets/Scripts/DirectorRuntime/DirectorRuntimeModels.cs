@@ -179,6 +179,196 @@ namespace AIDirector.UnityRuntime
         public string intent;
         public SceneSummaryData scene_summary;
         public VisionAnalysisData vision_analysis;
+        public string llm_provider;
+        public string llm_model;
+    }
+
+    [Serializable]
+    public class TimeSpanData
+    {
+        public float start;
+        public float end;
+        public float duration;
+    }
+
+    [Serializable]
+    public class ObjectTrackSampleData
+    {
+        public float timestamp;
+        public float[] position;
+        public float[] rotation;
+        public float[] velocity;
+        public bool visible = true;
+    }
+
+    [Serializable]
+    public class MotionDescriptorData
+    {
+        public float average_speed;
+        public float max_speed;
+        public float[] direction_trend;
+        public string acceleration_bucket = "constant";
+        public float total_displacement;
+    }
+
+    [Serializable]
+    public class ObjectTrackData
+    {
+        public string object_id;
+        public List<ObjectTrackSampleData> samples = new List<ObjectTrackSampleData>();
+        public MotionDescriptorData motion = new MotionDescriptorData();
+        public List<int> keyframe_indices = new List<int>();
+    }
+
+    [Serializable]
+    public class SceneEventData
+    {
+        public string event_id;
+        public string event_type;
+        public float timestamp;
+        public float duration;
+        public List<string> object_ids = new List<string>();
+        public string description;
+    }
+
+    [Serializable]
+    public class CameraCandidateData
+    {
+        public string region_id;
+        public float time_start;
+        public float time_end;
+        public float[] center;
+        public float radius;
+        public float clearance_score = 0.5f;
+    }
+
+    [Serializable]
+    public class SceneTimelineData
+    {
+        public string scene_id;
+        public string scene_name;
+        public string scene_type;
+        public string description;
+        public BoundsData bounds = new BoundsData();
+        public TimeSpanData time_span = new TimeSpanData();
+        public List<SceneObjectData> objects_static = new List<SceneObjectData>();
+        public List<ObjectTrackData> object_tracks = new List<ObjectTrackData>();
+        public List<SceneEventData> events = new List<SceneEventData>();
+        public List<CameraCandidateData> camera_candidates = new List<CameraCandidateData>();
+        public List<SpatialRelationData> relations = new List<SpatialRelationData>();
+        public FreeSpaceData free_space;
+    }
+
+    [Serializable]
+    public class TemporalGenerateRequestData
+    {
+        public string scene_id;
+        public string intent;
+        public SceneTimelineData scene_timeline;
+        public string llm_provider;
+        public string llm_model;
+        public string cinematic_style;
+        public string style_notes;
+    }
+
+    [Serializable]
+    public class BeatData
+    {
+        public string beat_id;
+        public float time_start;
+        public float time_end;
+        public string goal;
+        public string mood;
+        public List<string> subjects = new List<string>();
+    }
+
+    [Serializable]
+    public class TemporalShotData
+    {
+        public string shot_id;
+        public float time_start;
+        public float time_end;
+        public string goal;
+        public string subject;
+        public string shot_type;
+        public string movement;
+        public string pacing;
+        public Dictionary<string, object> constraints = new Dictionary<string, object>();
+        public string rationale;
+        public string transition_in;
+        public string beat_id;
+    }
+
+    [Serializable]
+    public class TemporalDirectingPlanData
+    {
+        public string plan_id;
+        public string scene_id;
+        public string intent;
+        public string summary;
+        public TimeSpanData time_span;
+        public List<BeatData> beats = new List<BeatData>();
+        public List<TemporalShotData> shots = new List<TemporalShotData>();
+    }
+
+    [Serializable]
+    public class TimedTrajectoryPointData
+    {
+        public float timestamp;
+        public float[] position;
+        public float[] look_at;
+        public float fov = 60f;
+    }
+
+    [Serializable]
+    public class TemporalShotTrajectoryData
+    {
+        public string shot_id;
+        public float time_start;
+        public float time_end;
+        public string path_type = "linear";
+        public List<TimedTrajectoryPointData> timed_points = new List<TimedTrajectoryPointData>();
+        public TrajectoryMetricsData metrics = new TrajectoryMetricsData();
+    }
+
+    [Serializable]
+    public class TemporalTrajectoryPlanData
+    {
+        public string plan_id;
+        public string scene_id;
+        public TimeSpanData time_span;
+        public List<TemporalShotTrajectoryData> trajectories = new List<TemporalShotTrajectoryData>();
+    }
+
+    [Serializable]
+    public class PlanningPassArtifactData
+    {
+        public string pass_type;
+        public int pass_index;
+        public string model_provider;
+        public string model_id;
+        public string input_summary;
+        public string output_raw;
+        public Dictionary<string, object> output_parsed = new Dictionary<string, object>();
+        public float duration_ms;
+        public bool success = true;
+        public string error_message;
+    }
+
+    [Serializable]
+    public class TemporalGenerateResponseData
+    {
+        public TemporalDirectingPlanData temporal_directing_plan = new TemporalDirectingPlanData();
+        public TemporalTrajectoryPlanData temporal_trajectory_plan = new TemporalTrajectoryPlanData();
+        public ValidationReportData validation_report = new ValidationReportData();
+        public List<PlanningPassArtifactData> pass_artifacts = new List<PlanningPassArtifactData>();
+        public string output_prefix;
+        public string scene_id;
+        public string intent;
+        public string llm_provider;
+        public string llm_model;
+        public string saved_at;
+        public bool temporal = true;
     }
 
     [Serializable]

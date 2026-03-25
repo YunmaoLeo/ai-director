@@ -11,6 +11,7 @@ namespace AIDirector.UnityRuntime
         [SerializeField] private string baseUrl = "http://127.0.0.1:8000";
         [SerializeField] private string generatePath = "/api/generate";
         [SerializeField] private string runtimeGeneratePath = "/api/unity/generate";
+        [SerializeField] private string runtimeTemporalGeneratePath = "/api/unity/temporal/generate";
         [SerializeField] private string bearerToken;
 
         public IEnumerator GenerateFromSceneId(string sceneId, string intent, Action<GenerateResponseData> onSuccess, Action<string> onError)
@@ -29,7 +30,15 @@ namespace AIDirector.UnityRuntime
             yield return PostJson(BuildUrl(runtimeGeneratePath), DirectorJsonUtility.ToJson(requestData, false), onSuccess, onError);
         }
 
-        private IEnumerator PostJson(string url, string json, Action<GenerateResponseData> onSuccess, Action<string> onError)
+        public IEnumerator GenerateTemporalFromRuntimeTimeline(
+            TemporalGenerateRequestData requestData,
+            Action<TemporalGenerateResponseData> onSuccess,
+            Action<string> onError)
+        {
+            yield return PostJson(BuildUrl(runtimeTemporalGeneratePath), DirectorJsonUtility.ToJson(requestData, false), onSuccess, onError);
+        }
+
+        private IEnumerator PostJson<TResponse>(string url, string json, Action<TResponse> onSuccess, Action<string> onError)
         {
             using var request = new UnityWebRequest(url, UnityWebRequest.kHttpVerbPOST);
             var bodyRaw = Encoding.UTF8.GetBytes(json);
@@ -50,7 +59,7 @@ namespace AIDirector.UnityRuntime
                 yield break;
             }
 
-            var response = DirectorJsonUtility.FromJson<GenerateResponseData>(request.downloadHandler.text);
+            var response = DirectorJsonUtility.FromJson<TResponse>(request.downloadHandler.text);
             if (response == null)
             {
                 onError?.Invoke("Backend response could not be parsed.");

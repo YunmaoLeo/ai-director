@@ -1,0 +1,33 @@
+## Scene Information
+
+Scene: {scene_name} ({scene_type})
+Time Span: {time_start}s to {time_end}s ({duration}s total)
+
+### Replay Description
+{replay_description}
+
+## User Intent
+{intent}
+
+## Style Selection Task (Pre-Pass)
+
+Choose the best cinematic style profile for this timeline and intent.
+
+Allowed style_profile values:
+- default
+- motorsport_f1
+- sports_broadcast
+- cinematic_drama
+
+Output a JSON object with:
+- style_profile: one allowed value
+- style_rationale: concise explanation based on timeline and intent
+- style_notes: optional execution notes for downstream shot planning
+
+Guidelines:
+- Prefer motorsport_f1 only when timeline intent implies race-like fast tracking.
+- Prefer sports_broadcast for general live-action sports coverage.
+- Prefer cinematic_drama for emotional or story-driven movement.
+- If uncertain, use default.
+
+Output ONLY valid JSON.
