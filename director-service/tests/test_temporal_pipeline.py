@@ -1,7 +1,10 @@
 """Tests for the temporal plan pipeline end-to-end."""
 
+import copy
+
 import pytest
 
+from app.models.scene_timeline import SemanticSceneEvent
 from app.pipelines.temporal_plan_pipeline import TemporalPlanPipeline
 
 
@@ -92,3 +95,67 @@ class TestTemporalPlanPipeline:
         )
         assert result.temporal_directing_plan is not None
         assert len(result.temporal_directing_plan.shots) >= 1
+
+    def test_pipeline_populates_dual_event_layers(self, walking_actor_timeline):
+        timeline = copy.deepcopy(walking_actor_timeline)
+        # Simulate older payload that only had `events`.
+        timeline.raw_events = []
+        timeline.semantic_events = []
+        assert len(timeline.events) > 0
+
+        result = self.pipeline.run(
+            timeline,
+            "Summarize the core temporal moments clearly",
+            save=False,
+        )
+        assert len(result.timeline.raw_events) > 0
+        assert len(result.timeline.semantic_events) > 0
+
+    def test_pipeline_reuses_cached_semantic_events(self, walking_actor_timeline, tmp_path, monkeypatch):
+        output_dir = tmp_path / "outputs"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        pipeline = TemporalPlanPipeline(
+            llm_provider="mock",
+            output_dir=output_dir,
+            scenes_dir="scenes",
+        )
+
+        timeline = copy.deepcopy(walking_actor_timeline)
+        timeline.semantic_events = []
+        calls = {"count": 0}
+
+        def _fake_interpret(*_, **__):
+            calls["count"] += 1
+            return [
+                SemanticSceneEvent(
+                    semantic_id="sem_cache_0001",
+                    label="Cached Test Event",
+                    time_start=timeline.time_span.start,
+                    time_end=min(timeline.time_span.end, timeline.time_span.start + 0.2),
+                    object_ids=[],
+                    summary="Cached semantic event",
+                    salience=0.7,
+                    confidence=0.9,
+                    evidence_event_ids=[],
+                    tags=["cache"],
+                )
+            ]
+
+        monkeypatch.setattr(pipeline._event_interpreter, "interpret", _fake_interpret)
+
+        result_first = pipeline.run(
+            copy.deepcopy(timeline),
+            "First run",
+            save=False,
+        )
+        assert calls["count"] == 1
+        assert len(result_first.timeline.semantic_events) == 1
+
+        result_second = pipeline.run(
+            copy.deepcopy(timeline),
+            "Second run",
+            save=False,
+        )
+        assert calls["count"] == 1
+        assert len(result_second.timeline.semantic_events) == 1
+        assert result_second.timeline.semantic_events[0].semantic_id == "sem_cache_0001"

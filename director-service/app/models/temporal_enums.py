@@ -15,7 +15,10 @@ class EventType(str, Enum):
 
 class TransitionType(str, Enum):
     cut = "cut"
+    hard_cut = "hard_cut"
+    flash_cut = "flash_cut"
     smooth = "smooth"
+    dissolve = "dissolve"
     match_cut = "match_cut"
     whip = "whip"
 

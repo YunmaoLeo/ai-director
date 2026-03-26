@@ -103,6 +103,42 @@
       "description": "Actors meet and begin conversation"
     }
   ],
+  "raw_events": [
+    {
+      "event_id": "evt_1",
+      "event_type": "interaction",
+      "timestamp": 6.0,
+      "duration": 6.0,
+      "object_ids": ["actor_a", "actor_b"],
+      "description": "Actors meet and begin conversation"
+    }
+  ],
+  "semantic_events": [
+    {
+      "semantic_id": "sem_0001",
+      "label": "Convergence Beat",
+      "time_start": 4.8,
+      "time_end": 6.4,
+      "object_ids": ["actor_a", "actor_b"],
+      "summary": "Two previously separated subjects converge toward the center, setting up a shared interaction moment.",
+      "salience": 0.72,
+      "confidence": 0.81,
+      "evidence_event_ids": ["evt_1"],
+      "tags": ["meeting_setup", "blocking_change"]
+    },
+    {
+      "semantic_id": "sem_0002",
+      "label": "Dialogue Hold",
+      "time_start": 6.0,
+      "time_end": 12.0,
+      "object_ids": ["actor_a", "actor_b"],
+      "summary": "The pair stabilizes in a sustained interaction phase, suitable for alternating coverage and reaction framing.",
+      "salience": 0.76,
+      "confidence": 0.83,
+      "evidence_event_ids": ["evt_1"],
+      "tags": ["interaction_phase", "coverage_window"]
+    }
+  ],
   "camera_candidates": [
     {
       "region_id": "cam_wide",

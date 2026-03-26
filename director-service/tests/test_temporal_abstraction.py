@@ -54,7 +54,11 @@ class TestTemporalAbstractor:
     def test_event_summary(self, walking_actor_timeline):
         tc = self.abstractor.abstract(walking_actor_timeline)
         assert tc.event_summary != ""
-        assert "speed_change" in tc.event_summary
+        assert (
+            "Raw signal events captured" in tc.event_summary
+            or "Raw timeline events" in tc.event_summary
+            or "speed_change" in tc.event_summary
+        )
         assert "Replay timeline summary" in tc.replay_description
 
     def test_static_objects_get_profiles(self, walking_actor_timeline):

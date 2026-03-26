@@ -1,0 +1,218 @@
+{
+  "scene_id": "temporal_slot_car_compact_track",
+  "scene_name": "Slot Car Compact Track",
+  "scene_type": "tabletop_dynamic_scene",
+  "description": "Two slot cars run a compact tabletop race. Raw motion events are provided and semantic events are intentionally left empty for backend LLM interpretation.",
+  "bounds": {
+    "width": 10.0,
+    "length": 7.0,
+    "height": 2.4
+  },
+  "time_span": {
+    "start": 0.0,
+    "end": 12.0,
+    "duration": 12.0
+  },
+  "objects_static": [
+    {
+      "id": "track_table",
+      "name": "Track Table",
+      "category": "architectural",
+      "position": [5.0, 0.35, 3.5],
+      "size": [9.4, 0.7, 6.4],
+      "importance": 0.45,
+      "tags": ["anchor", "track_base"]
+    },
+    {
+      "id": "start_gate",
+      "name": "Start Gate",
+      "category": "equipment",
+      "position": [2.1, 0.5, 3.8],
+      "size": [0.8, 1.0, 0.3],
+      "importance": 0.4,
+      "tags": ["landmark", "timing"]
+    },
+    {
+      "id": "car_red",
+      "name": "Red Car",
+      "category": "vehicle",
+      "position": [1.8, 0.0, 3.9],
+      "size": [0.3, 0.12, 0.18],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.92,
+      "tags": ["vehicle", "competitor"]
+    },
+    {
+      "id": "car_blue",
+      "name": "Blue Car",
+      "category": "vehicle",
+      "position": [1.6, 0.0, 3.5],
+      "size": [0.3, 0.12, 0.18],
+      "forward": [1.0, 0.0, 0.0],
+      "importance": 0.95,
+      "tags": ["vehicle", "competitor"]
+    }
+  ],
+  "object_tracks": [
+    {
+      "object_id": "car_red",
+      "samples": [
+        {"timestamp": 0.0, "position": [1.8, 0.0, 3.9], "rotation": [0.0, 90.0, 0.0], "velocity": [1.0, 0.0, 0.1], "visible": true},
+        {"timestamp": 1.0, "position": [2.8, 0.0, 4.0], "rotation": [0.0, 90.0, 0.0], "velocity": [1.2, 0.0, 0.1], "visible": true},
+        {"timestamp": 2.0, "position": [4.0, 0.0, 4.1], "rotation": [0.0, 95.0, 0.0], "velocity": [1.3, 0.0, 0.2], "visible": true},
+        {"timestamp": 3.0, "position": [5.4, 0.0, 4.3], "rotation": [0.0, 100.0, 0.0], "velocity": [1.35, 0.0, 0.3], "visible": true},
+        {"timestamp": 4.0, "position": [6.8, 0.0, 4.7], "rotation": [0.0, 130.0, 0.0], "velocity": [1.0, 0.0, 0.7], "visible": true},
+        {"timestamp": 5.0, "position": [7.6, 0.0, 5.4], "rotation": [0.0, 165.0, 0.0], "velocity": [0.5, 0.0, 1.0], "visible": true},
+        {"timestamp": 6.0, "position": [7.2, 0.0, 6.1], "rotation": [0.0, 215.0, 0.0], "velocity": [-0.8, 0.0, 0.8], "visible": true},
+        {"timestamp": 7.0, "position": [5.9, 0.0, 6.3], "rotation": [0.0, 260.0, 0.0], "velocity": [-1.2, 0.0, 0.2], "visible": true},
+        {"timestamp": 8.0, "position": [4.5, 0.0, 6.2], "rotation": [0.0, 270.0, 0.0], "velocity": [-1.3, 0.0, -0.1], "visible": true},
+        {"timestamp": 9.0, "position": [3.1, 0.0, 5.8], "rotation": [0.0, 305.0, 0.0], "velocity": [-1.0, 0.0, -0.6], "visible": true},
+        {"timestamp": 10.0, "position": [2.1, 0.0, 5.1], "rotation": [0.0, 340.0, 0.0], "velocity": [-0.6, 0.0, -0.9], "visible": true},
+        {"timestamp": 11.0, "position": [1.7, 0.0, 4.4], "rotation": [0.0, 15.0, 0.0], "velocity": [0.2, 0.0, -0.7], "visible": true},
+        {"timestamp": 12.0, "position": [1.9, 0.0, 3.8], "rotation": [0.0, 90.0, 0.0], "velocity": [0.8, 0.0, -0.1], "visible": true}
+      ],
+      "motion": {
+        "average_speed": 1.14,
+        "max_speed": 1.48,
+        "direction_trend": [0.1, 0.0, 0.2],
+        "acceleration_bucket": "mixed",
+        "total_displacement": 12.5
+      },
+      "keyframe_indices": [0, 4, 7, 10, 12]
+    },
+    {
+      "object_id": "car_blue",
+      "samples": [
+        {"timestamp": 0.0, "position": [1.6, 0.0, 3.5], "rotation": [0.0, 90.0, 0.0], "velocity": [0.9, 0.0, 0.1], "visible": true},
+        {"timestamp": 1.0, "position": [2.5, 0.0, 3.5], "rotation": [0.0, 90.0, 0.0], "velocity": [1.1, 0.0, 0.0], "visible": true},
+        {"timestamp": 2.0, "position": [3.7, 0.0, 3.5], "rotation": [0.0, 92.0, 0.0], "velocity": [1.25, 0.0, 0.0], "visible": true},
+        {"timestamp": 3.0, "position": [5.1, 0.0, 3.6], "rotation": [0.0, 96.0, 0.0], "velocity": [1.4, 0.0, 0.1], "visible": true},
+        {"timestamp": 4.0, "position": [6.5, 0.0, 3.9], "rotation": [0.0, 115.0, 0.0], "velocity": [1.25, 0.0, 0.4], "visible": true},
+        {"timestamp": 5.0, "position": [7.5, 0.0, 4.6], "rotation": [0.0, 150.0, 0.0], "velocity": [0.8, 0.0, 0.9], "visible": true},
+        {"timestamp": 6.0, "position": [7.6, 0.0, 5.5], "rotation": [0.0, 182.0, 0.0], "velocity": [0.1, 0.0, 1.0], "visible": true},
+        {"timestamp": 7.0, "position": [6.6, 0.0, 6.0], "rotation": [0.0, 240.0, 0.0], "velocity": [-1.0, 0.0, 0.5], "visible": true},
+        {"timestamp": 8.0, "position": [5.2, 0.0, 6.0], "rotation": [0.0, 266.0, 0.0], "velocity": [-1.3, 0.0, 0.0], "visible": true},
+        {"timestamp": 9.0, "position": [3.8, 0.0, 5.8], "rotation": [0.0, 280.0, 0.0], "velocity": [-1.2, 0.0, -0.2], "visible": true},
+        {"timestamp": 10.0, "position": [2.6, 0.0, 5.3], "rotation": [0.0, 315.0, 0.0], "velocity": [-0.9, 0.0, -0.7], "visible": true},
+        {"timestamp": 11.0, "position": [1.9, 0.0, 4.6], "rotation": [0.0, 350.0, 0.0], "velocity": [-0.4, 0.0, -0.8], "visible": true},
+        {"timestamp": 12.0, "position": [1.7, 0.0, 3.9], "rotation": [0.0, 92.0, 0.0], "velocity": [0.9, 0.0, -0.1], "visible": true}
+      ],
+      "motion": {
+        "average_speed": 1.18,
+        "max_speed": 1.51,
+        "direction_trend": [0.08, 0.0, 0.19],
+        "acceleration_bucket": "mixed",
+        "total_displacement": 12.9
+      },
+      "keyframe_indices": [0, 4, 7, 10, 12]
+    }
+  ],
+  "events": [
+    {
+      "event_id": "evt_0001",
+      "event_type": "speed_change",
+      "timestamp": 0.0,
+      "duration": 0.4,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Both cars accelerate from the start gate."
+    },
+    {
+      "event_id": "evt_0002",
+      "event_type": "interaction",
+      "timestamp": 4.8,
+      "duration": 1.8,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Blue closes distance and reaches side-by-side contention."
+    },
+    {
+      "event_id": "evt_0003",
+      "event_type": "interaction",
+      "timestamp": 6.6,
+      "duration": 1.0,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Blue transitions into a temporary lead at corner exit."
+    },
+    {
+      "event_id": "evt_0004",
+      "event_type": "speed_change",
+      "timestamp": 9.0,
+      "duration": 1.0,
+      "object_ids": ["car_red"],
+      "description": "Red increases pace for a late counter attempt."
+    }
+  ],
+  "raw_events": [
+    {
+      "event_id": "evt_0001",
+      "event_type": "speed_change",
+      "timestamp": 0.0,
+      "duration": 0.4,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Both cars accelerate from the start gate."
+    },
+    {
+      "event_id": "evt_0002",
+      "event_type": "interaction",
+      "timestamp": 4.8,
+      "duration": 1.8,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Blue closes distance and reaches side-by-side contention."
+    },
+    {
+      "event_id": "evt_0003",
+      "event_type": "interaction",
+      "timestamp": 6.6,
+      "duration": 1.0,
+      "object_ids": ["car_red", "car_blue"],
+      "description": "Blue transitions into a temporary lead at corner exit."
+    },
+    {
+      "event_id": "evt_0004",
+      "event_type": "speed_change",
+      "timestamp": 9.0,
+      "duration": 1.0,
+      "object_ids": ["car_red"],
+      "description": "Red increases pace for a late counter attempt."
+    }
+  ],
+  "semantic_events": [],
+  "camera_candidates": [
+    {
+      "region_id": "cam_start_line",
+      "time_start": 0.0,
+      "time_end": 2.5,
+      "center": [2.8, 1.35, 2.8],
+      "radius": 2.0,
+      "clearance_score": 0.9
+    },
+    {
+      "region_id": "cam_far_turn",
+      "time_start": 4.0,
+      "time_end": 7.5,
+      "center": [7.3, 1.5, 5.6],
+      "radius": 2.1,
+      "clearance_score": 0.88
+    },
+    {
+      "region_id": "cam_top_straight",
+      "time_start": 7.2,
+      "time_end": 10.2,
+      "center": [5.0, 1.7, 6.3],
+      "radius": 2.5,
+      "clearance_score": 0.85
+    },
+    {
+      "region_id": "cam_overhead",
+      "time_start": 0.0,
+      "time_end": 12.0,
+      "center": [5.0, 2.0, 3.5],
+      "radius": 3.2,
+      "clearance_score": 0.84
+    }
+  ],
+  "relations": [
+    {"type": "near", "source": "car_red", "target": "car_blue"},
+    {"type": "near", "source": "start_gate", "target": "track_table"}
+  ],
+  "free_space": null
+}

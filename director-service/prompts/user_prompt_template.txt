@@ -42,4 +42,17 @@ Each shot must have:
 - constraints: object with optional fields (keep_objects_visible, avoid_high_angle, avoid_occlusion, preserve_context, end_on_subject, maintain_room_readability)
 - rationale: why this shot is included
 
+Cinematic quality bar:
+- The sequence should feel authored, not mechanically uniform.
+- Use at least 2 distinct shot scales unless intent explicitly requests otherwise.
+- Use at least 2 distinct movement styles unless intent explicitly requests static coverage.
+- Front-load orientation (establishing geography), then increase specificity/emotion.
+- End with a purposeful payoff shot (resolve, reveal, or emotional emphasis).
+- Keep durations rhythmically varied (avoid nearly identical duration for every shot).
+
+Reference pattern example (format inspiration only, do not copy blindly):
+- Shot A: establishing + slow_forward + calm (orient viewer to space and subjects)
+- Shot B: medium + lateral_slide + steady (follow primary action while preserving context)
+- Shot C: close_up/detail + static or arc + dramatic (payoff on key subject/moment)
+
 Output ONLY valid JSON. No commentary.

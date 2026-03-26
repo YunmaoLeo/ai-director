@@ -1,320 +1,122 @@
-# Dynamic Scene Cinematic Planning Roadmap
+# Dynamic Scene Planning Roadmap (Updated)
 
-## Goal
+## 1) Current Status (Implemented)
 
-Upgrade the current static-scene pipeline to support **time-varying scenes** and produce camera plans that remain cinematic while responding to motion over a time window.
+The project now supports temporal planning with a dual-layer event model:
 
-This roadmap is planning-only. No implementation is included here.
+- Unity/runtime side captures `scene_timeline` with:
+  - `object_tracks`
+  - `events` (legacy compatibility)
+  - `raw_events` (deterministic geometric events)
+  - `semantic_events` (optional; can be empty from Unity)
+- Backend temporal pipeline:
+  - auto-syncs legacy `events` with `raw_events`
+  - runs LLM semantic-event interpretation when `semantic_events` is missing
+  - keeps fallback behavior so planning does not fail if semantic interpretation fails
+- Frontend debug UI:
+  - Scene panel shows semantic events first (falls back to raw)
+  - Temporal trajectory timeline can render semantic events as markers
 
----
-
-## Scope and Non-Goals
-
-### In Scope
-
-- Capture temporal scene descriptions from Unity (instead of a single snapshot).
-- Extend backend planning from one-shot generation to temporal/multi-pass planning.
-- Add frontend debugging tools for timeline-based inspection and playback comparison.
-- Support iterative LLM planning loops where useful.
-
-### Out of Scope (Initial Phase)
-
-- Full real-time frame-by-frame re-planning at game framerate.
-- Multi-camera switching across many physical cameras.
-- Production-grade distributed orchestration.
+This means Unity remains scenario-agnostic, while semantic readability is delegated to backend LLM interpretation.
 
 ---
 
-## Target System Workflow (Dynamic Version)
+## 2) Canonical Event Contract (Now)
 
-1. Unity records a scene window (for example 5-20 seconds) as temporal samples.
-2. Unity sends one planning request containing:
-   - user intent
-   - scene timeline summary
-   - optional keyframe images / vision notes
-3. Backend builds a temporal cinematic abstraction.
-4. Backend runs multi-stage planning:
-   - stage A: global directing beats over time
-   - stage B: shot-level temporal constraints
-   - stage C: trajectory solving and smoothing
-   - stage D: validation and confidence checks
-5. Backend returns:
-   - temporal directing plan
-   - temporal trajectory plan
-   - validation report
-   - run metadata
-6. Frontend and Unity replay and debug with timeline controls.
+### Raw Event Layer (`raw_events`)
 
----
+Machine-oriented, deterministic, geometry/timing derived:
 
-## Unity Layer Plan
+- `event_id`
+- `event_type`
+- `timestamp`
+- `duration`
+- `object_ids`
+- `description`
 
-## 1) Runtime Temporal Capture
+Typical `event_type`: `appear`, `disappear`, `speed_change`, `direction_change`, `interaction`, `occlusion_start`, `occlusion_end`.
 
-Introduce a timeline capture mode in runtime components:
+### Semantic Event Layer (`semantic_events`)
 
-- Sampling strategy:
-  - fixed interval sampling (for example 5-10 Hz), not every rendered frame
-  - configurable capture duration
-- Per-sample data:
-  - timestamp
-  - object transforms for tracked objects
-  - object visibility proxy (in view / off-screen / occluded estimate)
-  - scene-level events (object appears/disappears, interaction changes)
-- Compression/aggregation:
-  - keyframe extraction (reduce redundant samples)
-  - motion stats per object (speed, direction trend, acceleration buckets)
+Human-readable interpretation layer for directing/debug:
 
-## 2) Temporal Scene Description Schema (Unity Output)
+- `semantic_id`
+- `label`
+- `time_start`, `time_end`
+- `object_ids`
+- `summary`
+- `salience`, `confidence`
+- `evidence_event_ids`
+- `tags`
 
-Add a new payload mode next to current static summary:
-
-- `scene_timeline`:
-  - `time_span`: start/end/duration
-  - `objects_static`: static semantics and dimensions
-  - `object_tracks`: time-series transforms and derived motion descriptors
-  - `events`: detected semantic events
-  - `camera_candidates` (optional): suggested safe regions over time
-- Keep backward compatibility with static `scene_summary` mode.
-
-## 3) Vision Augmentation Strategy
-
-Use OpenAI vision selectively on keyframes:
-
-- Trigger only when:
-  - semantic uncertainty is high
-  - tracked objects are untagged/unknown
-  - critical events are hard to infer from geometry alone
-- Send keyframes + concise context, receive semantic annotations.
-- Merge vision annotations into timeline abstraction, not raw per-frame chat output.
-
-## 4) Unity Playback Updates
-
-- Support trajectory plans with timeline mapping:
-  - camera pose as function of time
-  - optional re-timing policy if Unity runtime time differs
-- Add debug overlays:
-  - current shot segment
-  - current target subject
-  - look-at and FOV trace
+Important rule: semantic events must be evidence-grounded in raw events and tracks.
 
 ---
 
-## Backend Layer Plan
+## 3) Recommended Data Flow (Target-Steady)
 
-## 1) Data Model and API Evolution
-
-Add dynamic endpoints and models while keeping existing APIs stable:
-
-- New request shape:
-  - `scene_timeline` + `intent` + `planning_config`
-- New response shape:
-  - temporal directing plan
-  - temporal trajectory plan
-  - validation with temporal checks
-- Keep `/api/generate` and static schemas as compatibility mode.
-
-## 2) Temporal Abstraction Service
-
-Create a temporal abstraction step before directing:
-
-- Track-level summarization:
-  - primary subjects over time
-  - motion salience ranking
-  - event windows and transitions
-- Space-time affordances:
-  - where camera can move safely over time
-  - occlusion-risk windows
-  - reveal opportunities and conflict windows
-
-## 3) Iterative LLM Planning Strategy (Recommended)
-
-Use structured multi-pass planning instead of one large prompt:
-
-1. **Global Beat Pass**
-   - Input: intent + temporal abstraction summary
-   - Output: high-level beat timeline and cinematic goals
-2. **Shot Intent Pass**
-   - Input: beats + scene-time constraints
-   - Output: shot segments with targets, movement style, pacing, transitions
-3. **Constraint Critique Pass**
-   - Input: draft shots + deterministic checks
-   - Output: revised constraints or fallback edits
-4. **Deterministic Solve**
-   - Convert shot intents into time-parameterized trajectories
-5. **Validation Pass**
-   - Schema + temporal continuity + safety + target coverage
-
-Why iterative:
-- lower hallucination risk
-- better control and observability
-- easier partial retries (retry one pass instead of whole generation)
-
-## 4) Solver Refactor for Time-Varying Targets
-
-- Trajectory solver must support moving targets.
-- Add objective terms:
-  - smoothness
-  - subject framing continuity
-  - collision/clearance margin over time
-  - cinematic pace adherence
-- Add temporal constraints:
-  - shot boundary continuity
-  - transition feasibility
-  - FOV continuity rules
-
-## 5) Debug Persistence
-
-Persist full dynamic run bundles:
-
-- input timeline snapshot
-- intermediate LLM pass artifacts
-- final plans
-- validation and metrics
-- model/provider/version used per pass
-
-This is required for reproducible debugging and A/B comparison.
+1. Unity captures temporal data and emits `raw_events` (plus legacy `events` for compatibility).
+2. Unity sends timeline + user intent to backend.
+3. Backend enriches with `semantic_events` (LLM pass + validator + fallback).
+4. Backend runs beat/shot/trajectory planning.
+5. Frontend/Unity playback tools visualize both layers.
 
 ---
 
-## Frontend Debug UI Plan
+## 4) Sample Scene Policy (Updated)
 
-## 1) Timeline-Centric Workspace
+We keep temporal sample files in:
 
-Extend current panels with temporal controls:
+- `director-service/scenes/temporal_*.json`
 
-- global timeline scrubber
-- shot segment markers
-- event markers
-- playback speed controls
+Each temporal sample should:
 
-## 2) 3D Preview Enhancements
+- include `raw_events`
+- include `events` as compatibility mirror
+- allow `semantic_events` to be empty (recommended for testing interpretation pass), or pre-filled for fixed regression scenes
 
-- Show animated camera and moving objects over time.
-- Show FOV frustum and look-at target along timeline.
-- Allow toggling layers:
-  - trajectories
-  - subjects
-  - occlusion risk heat hints (if available)
+Current slot-car reference sample:
 
-## 3) Run Comparison
-
-- Compare two runs side-by-side:
-  - different models
-  - different iterative strategies
-  - different intents
-- Show per-run metadata and per-pass model info clearly.
-
-## 4) Artifact Browser
-
-- Browse saved run bundles.
-- Inspect intermediate pass outputs (Beat/Shot/Critique) with timestamps.
-- One-click replay from selected run.
+- `director-service/scenes/temporal_slot_car_compact_track.json`
 
 ---
 
-## Implementation Phases
+## 5) Next Development Priorities
 
-## Phase 0: Design Freeze (1 week)
+### P1: Generic Raw Event Coverage (Unity + backend deterministic layer)
 
-- Finalize temporal schemas and API contracts.
-- Decide sampling defaults and payload size limits.
-- Define deterministic checks used between LLM passes.
+- Add pairwise, scene-agnostic relation events:
+  - proximity start/end
+  - contact start/end
+  - sustained co-motion
+- Add hysteresis/cooldown to reduce event noise.
 
-Exit criteria:
-- schema docs approved
-- sample payloads validated end-to-end (without solver changes)
+### P2: Semantic Event Quality Loop (Backend)
 
-## Phase 1: Unity Temporal Capture + Backend Ingestion (1-2 weeks)
+- Add stricter semantic event validation:
+  - time window sanity
+  - object ID existence
+  - evidence linkage checks
+- Add optional critique/rewrite pass for semantic event clarity.
 
-- Unity captures timeline and uploads `scene_timeline`.
-- Backend accepts, validates, stores timeline bundles.
-- Keep planning static for now (temporal data stored, not fully used).
+### P3: Frontend Explainability
 
-Exit criteria:
-- stable upload for long enough clips
-- reproducible stored input bundles
+- Add explicit toggle between raw and semantic event tracks.
+- Add hover cards showing semantic event evidence mapping (`evidence_event_ids`).
 
-## Phase 2: Temporal Abstraction + Iterative Directing (2 weeks)
+### P4: Evaluation Harness (Engineering, not thesis export)
 
-- Implement temporal abstraction service.
-- Implement multi-pass LLM orchestration and artifact persistence.
-- Add robust fallback path if one pass fails.
-
-Exit criteria:
-- directing plans include meaningful time segments
-- retries/fallbacks avoid hard 500 failures
-
-## Phase 3: Temporal Trajectory Solver (2-3 weeks)
-
-- Refactor solver for moving targets and time-parametric output.
-- Add temporal validation rules.
-
-Exit criteria:
-- smooth and valid camera motion across full clip
-- measurable improvement vs static baseline on test scenes
-
-## Phase 4: Frontend Timeline Debug + Comparison (1-2 weeks)
-
-- Add timeline UI and run comparison workflow.
-- Add 3D dynamic preview controls and pass inspection.
-
-Exit criteria:
-- debug workflow can identify failure source per pipeline stage
-
-## Phase 5: Hardening and Evaluation (1-2 weeks)
-
-- Performance profiling and payload optimization.
-- Regression suite for static and dynamic modes.
-- Documentation and operator playbook updates.
+- Compare before/after plans using:
+  - event coverage in shot windows
+  - subject continuity
+  - cut readability under motion
 
 ---
 
-## Testing Strategy
+## 6) Versioning/Compatibility Notes
 
-## Unity
-
-- deterministic playback test scenes:
-  - slow actor motion
-  - sudden direction change
-  - object occlusion crossing
-- payload size and sampling stress tests
-
-## Backend
-
-- schema and contract tests for dynamic payloads
-- orchestration tests for iterative pass retries/fallbacks
-- solver continuity and safety tests over timeline
-
-## Frontend
-
-- timeline controls behavior tests
-- run-history and comparison integrity tests
-- preview sync accuracy tests
-
----
-
-## Key Risks and Mitigations
-
-- **Risk:** payload too large for practical iteration  
-  **Mitigation:** keyframe extraction, motion summarization, configurable sampling
-
-- **Risk:** iterative LLM loop increases latency/cost  
-  **Mitigation:** per-pass model selection, pass-level caching, selective retry
-
-- **Risk:** dynamic solver instability on abrupt motion  
-  **Mitigation:** transition constraints, continuity penalties, fallback shot templates
-
-- **Risk:** debugging complexity rises sharply  
-  **Mitigation:** persist intermediate artifacts and add timeline-centric UI inspection
-
----
-
-## Immediate Next Decisions
-
-1. Choose default capture window and sampling rate for first implementation.
-2. Freeze `scene_timeline` schema v1 with strict size budget.
-3. Decide first iterative planning profile:
-   - 2-pass (Beat + Shot) or
-   - 3-pass (Beat + Shot + Critique)
-4. Select baseline dynamic test scenes for acceptance benchmarks.
+- `events` remains accepted and emitted for old clients.
+- New clients should prefer:
+  - `raw_events` for deterministic logic
+  - `semantic_events` for UI readability and directing context
+- Backward compatibility is intentionally maintained in both Unity payloads and backend models.

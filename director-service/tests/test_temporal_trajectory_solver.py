@@ -2,10 +2,12 @@
 
 import pytest
 
+from app.models.temporal_directing_plan import TemporalDirectingPlan, TemporalShot
 from app.services.temporal_trajectory_solver import TemporalTrajectorySolver
 from app.services.temporal_plan_orchestrator import TemporalPlanOrchestrator
 from app.services.temporal_abstraction import TemporalAbstractor
 from app.services.llm_client import MockTemporalLLMClient
+from app.utils.geometry_utils import vec3_distance
 
 
 class TestTemporalTrajectorySolver:
@@ -87,3 +89,53 @@ class TestTemporalTrajectorySolver:
                 dz = abs(prev_end[2] - curr_start[2])
                 # After continuity enforcement, should be reasonable
                 assert dx < 10 and dz < 10
+
+    def test_hard_cut_stays_decisive_vs_smooth_transition(self, walking_actor_timeline):
+        timeline = walking_actor_timeline
+
+        def build_plan(transition_in: str) -> TemporalDirectingPlan:
+            return TemporalDirectingPlan(
+                plan_id=f"plan_{transition_in}",
+                scene_id=timeline.scene_id,
+                intent="transition check",
+                time_span=timeline.time_span,
+                shots=[
+                    TemporalShot(
+                        shot_id="shot_1",
+                        time_start=timeline.time_span.start,
+                        time_end=timeline.time_span.start + 2.0,
+                        goal="establish",
+                        subject="room",
+                        shot_type="wide",
+                        movement="static",
+                        transition_in="cut",
+                    ),
+                    TemporalShot(
+                        shot_id="shot_2",
+                        time_start=timeline.time_span.start + 2.0,
+                        time_end=timeline.time_span.start + 4.0,
+                        goal="switch angle",
+                        subject="room",
+                        shot_type="close_up",
+                        movement="static",
+                        transition_in=transition_in,
+                    ),
+                ],
+            )
+
+        cut_plan = build_plan("cut")
+        smooth_plan = build_plan("smooth")
+        flash_plan = build_plan("flash_cut")
+
+        cut_traj = self.solver.solve(cut_plan, timeline).trajectories
+        smooth_traj = self.solver.solve(smooth_plan, timeline).trajectories
+        flash_traj = self.solver.solve(flash_plan, timeline).trajectories
+
+        cut_jump = vec3_distance(cut_traj[0].timed_points[-1].position, cut_traj[1].timed_points[0].position)
+        smooth_jump = vec3_distance(smooth_traj[0].timed_points[-1].position, smooth_traj[1].timed_points[0].position)
+        flash_jump = vec3_distance(flash_traj[0].timed_points[-1].position, flash_traj[1].timed_points[0].position)
+
+        assert smooth_jump < cut_jump
+        assert pytest.approx(flash_jump, rel=0.1, abs=0.15) == cut_jump
+        assert smooth_traj[1].transition_in == "smooth"
+        assert flash_traj[1].transition_in == "flash_cut"

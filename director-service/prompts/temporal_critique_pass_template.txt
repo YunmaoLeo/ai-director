@@ -24,6 +24,12 @@ Common issues to fix:
 - Overlapping shot time windows (adjust boundaries)
 - Shots shorter than 1.5s (extend or merge)
 - Shots extending beyond scene time_span (clip to bounds)
+- Monotonous transitions (avoid making every transition smooth unless continuity clearly requires it)
+- Missing impact transitions for high-energy moments (consider cut, hard_cut, flash_cut, or whip where appropriate)
+- Monotonous lens grammar (e.g., repeated shot_type + movement patterns without purpose)
+- Abrupt edits without motivation (if same subject/context, consider match_cut/smooth/dissolve)
+- Excessively uniform durations (introduce rhythm unless intent demands uniformity)
+- No clear payoff framing near major events (add close/reveal emphasis where justified)
 
 Output a JSON object with:
 - shots: the corrected array of shot objects (same schema as input)

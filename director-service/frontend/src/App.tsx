@@ -226,11 +226,19 @@ export default function App() {
           style={{ width: `${columnWidths[0]}%` }}
         >
           <div className="stack-pane" style={{ height: `${rowSplits[0]}%` }}>
-            <ScenePanel scene={scene} />
+            <ScenePanel
+              scene={scene}
+              mode={mode}
+              sceneTimeline={temporalResult?.scene_timeline ?? sceneTimeline}
+            />
           </div>
           <div className="stack-splitter" onMouseDown={e => beginRowResize(0, e.clientY)} />
           <div className="stack-pane" style={{ height: `${100 - rowSplits[0]}%` }}>
-            <AbstractionPanel result={result} />
+            <AbstractionPanel
+              result={result}
+              mode={mode}
+              temporalResult={temporalResult}
+            />
           </div>
         </div>
 
@@ -274,6 +282,8 @@ export default function App() {
               <div className="sub-pane" style={{ height: '54%' }}>
                 <DirectingPlanPanel
                   plan={result?.directing_plan ?? null}
+                  temporalPlan={temporalResult?.temporal_directing_plan ?? null}
+                  mode={mode}
                   selectedShotId={selectedShotId}
                   onSelectShot={setSelectedShotId}
                 />

@@ -84,6 +84,50 @@
       "description": "Moving partition clears past the statue"
     }
   ],
+  "raw_events": [
+    {
+      "event_id": "evt_occ_start",
+      "event_type": "occlusion_start",
+      "timestamp": 2.5,
+      "duration": 0.0,
+      "object_ids": ["mover", "statue"],
+      "description": "Moving partition begins to occlude the statue"
+    },
+    {
+      "event_id": "evt_occ_end",
+      "event_type": "occlusion_end",
+      "timestamp": 4.5,
+      "duration": 0.0,
+      "object_ids": ["mover", "statue"],
+      "description": "Moving partition clears past the statue"
+    }
+  ],
+  "semantic_events": [
+    {
+      "semantic_id": "sem_0001",
+      "label": "Subject Loss",
+      "time_start": 2.5,
+      "time_end": 4.5,
+      "object_ids": ["statue", "mover"],
+      "summary": "The moving partition blocks the hero subject, creating a temporary visibility drop and tension window.",
+      "salience": 0.79,
+      "confidence": 0.86,
+      "evidence_event_ids": ["evt_occ_start", "evt_occ_end"],
+      "tags": ["occlusion_phase", "tension"]
+    },
+    {
+      "semantic_id": "sem_0002",
+      "label": "Reveal Recovery",
+      "time_start": 4.5,
+      "time_end": 5.4,
+      "object_ids": ["statue"],
+      "summary": "The statue is cleanly revealed again after occlusion, creating a natural emphasis beat.",
+      "salience": 0.74,
+      "confidence": 0.84,
+      "evidence_event_ids": ["evt_occ_end"],
+      "tags": ["reveal", "payoff"]
+    }
+  ],
   "camera_candidates": [
     {
       "region_id": "cam_front",

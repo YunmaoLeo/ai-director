@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SceneSummary, ShotTrajectory, TrajectoryPlan, TemporalGenerateResponse, ObjectTrack } from '../types';
+import type {
+  SceneSummary,
+  ShotTrajectory,
+  TrajectoryPlan,
+  TemporalGenerateResponse,
+  ObjectTrack,
+  SceneEvent,
+  SemanticSceneEvent,
+} from '../types';
 import TopDownCanvas from '../components/TopDownCanvas';
 import ThreeTrajectoryPreview from '../components/ThreeTrajectoryPreview';
 import AnimatedThreePreview from '../components/AnimatedThreePreview';
@@ -16,6 +24,29 @@ interface Props {
 }
 
 export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onSelectShot, mode = 'static', temporalResult }: Props) {
+  const tempTraj = temporalResult?.temporal_trajectory_plan;
+  const tempPlan = temporalResult?.temporal_directing_plan;
+  const tempTimeline = temporalResult?.scene_timeline;
+  const timeSpan = tempPlan?.time_span;
+  const objectTracks: ObjectTrack[] = tempTimeline?.object_tracks ?? [];
+  const rawEvents: SceneEvent[] = tempTimeline?.raw_events ?? tempTimeline?.events ?? [];
+  const semanticEvents: SemanticSceneEvent[] = tempTimeline?.semantic_events ?? [];
+  const events = buildTimelineEvents(rawEvents, semanticEvents);
+  const shotTransitions: Record<string, string> = tempPlan
+    ? Object.fromEntries(tempPlan.shots.map((shot) => [shot.shot_id, shot.transition_in || 'cut']))
+    : {};
+  const temporalScene: SceneSummary | null = tempTimeline
+    ? {
+        scene_id: tempTimeline.scene_id,
+        scene_name: tempTimeline.scene_name,
+        scene_type: tempTimeline.scene_type,
+        description: tempTimeline.description,
+        bounds: tempTimeline.bounds,
+        objects: tempTimeline.objects_static,
+        relations: tempTimeline.relations,
+      }
+    : scene;
+
   const playbackDuration = selectedShotId
     ? trajectory?.trajectories.find(t => t.shot_id === selectedShotId)?.duration ?? 0
     : trajectory?.total_duration ?? 0;
@@ -23,6 +54,11 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
   const [playheadSeconds, setPlayheadSeconds] = useState(0);
   const [previewMode, setPreviewMode] = useState<'camera' | 'observer'>('camera');
   const lastFrameRef = useRef<number | null>(null);
+  const [tempPlayhead, setTempPlayhead] = useState(timeSpan?.start ?? 0);
+  const [tempPlaying, setTempPlaying] = useState(false);
+  const [tempSpeed, setTempSpeed] = useState(1);
+  const [tempPreviewMode, setTempPreviewMode] = useState<'camera' | 'observer'>('observer');
+  const tempLastFrame = useRef<number | null>(null);
 
   useEffect(() => {
     setPlayheadSeconds(0);
@@ -59,66 +95,46 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
     return () => window.cancelAnimationFrame(frameId);
   }, [isPlaying, playbackDuration]);
 
+  useEffect(() => {
+    setTempPlayhead(timeSpan?.start ?? 0);
+    setTempPlaying(false);
+    tempLastFrame.current = null;
+  }, [timeSpan?.start, temporalResult]);
+
+  useEffect(() => {
+    if (!tempPlaying || !timeSpan || timeSpan.duration <= 0) {
+      tempLastFrame.current = null;
+      return;
+    }
+
+    let frameId = 0;
+    const tick = (time: number) => {
+      if (tempLastFrame.current == null) {
+        tempLastFrame.current = time;
+      }
+
+      const delta = ((time - tempLastFrame.current) / 1000) * tempSpeed;
+      tempLastFrame.current = time;
+      setTempPlayhead(prev => {
+        const next = prev + delta;
+        if (next >= timeSpan.end) {
+          setTempPlaying(false);
+          return timeSpan.end;
+        }
+        return next;
+      });
+      frameId = window.requestAnimationFrame(tick);
+    };
+
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [tempPlaying, tempSpeed, timeSpan]);
+
   // Temporal mode rendering
   if (mode === 'temporal') {
-    const tempTraj = temporalResult?.temporal_trajectory_plan;
-    const tempPlan = temporalResult?.temporal_directing_plan;
-    const tempTimeline = temporalResult?.scene_timeline;
-    const timeSpan = tempPlan?.time_span;
-    const objectTracks: ObjectTrack[] = tempTimeline?.object_tracks ?? [];
-    const events = tempTimeline?.events ?? [];
-    const temporalScene: SceneSummary = tempTimeline
-      ? {
-          scene_id: tempTimeline.scene_id,
-          scene_name: tempTimeline.scene_name,
-          scene_type: tempTimeline.scene_type,
-          description: tempTimeline.description,
-          bounds: tempTimeline.bounds,
-          objects: tempTimeline.objects_static,
-          relations: tempTimeline.relations,
-        }
-      : scene as SceneSummary;
-
     if (!temporalScene || !tempTraj || !tempPlan || !timeSpan) {
       return <div className="panel"><h3>Temporal Preview</h3><p className="muted">No temporal data</p></div>;
     }
-
-    const totalDuration = timeSpan.duration;
-    const [tempPlayhead, setTempPlayhead] = useState(timeSpan.start);
-    const [tempPlaying, setTempPlaying] = useState(false);
-    const [tempSpeed, setTempSpeed] = useState(1);
-    const [tempPreviewMode, setTempPreviewMode] = useState<'camera' | 'observer'>('observer');
-    const tempLastFrame = useRef<number | null>(null);
-
-    useEffect(() => {
-      setTempPlayhead(timeSpan.start);
-      setTempPlaying(false);
-      tempLastFrame.current = null;
-    }, [temporalResult]);
-
-    useEffect(() => {
-      if (!tempPlaying || totalDuration <= 0) {
-        tempLastFrame.current = null;
-        return;
-      }
-      let frameId = 0;
-      const tick = (time: number) => {
-        if (tempLastFrame.current == null) tempLastFrame.current = time;
-        const delta = ((time - tempLastFrame.current) / 1000) * tempSpeed;
-        tempLastFrame.current = time;
-        setTempPlayhead(prev => {
-          const next = prev + delta;
-          if (next >= timeSpan.end) {
-            setTempPlaying(false);
-            return timeSpan.end;
-          }
-          return next;
-        });
-        frameId = window.requestAnimationFrame(tick);
-      };
-      frameId = window.requestAnimationFrame(tick);
-      return () => window.cancelAnimationFrame(frameId);
-    }, [tempPlaying, totalDuration, tempSpeed]);
 
     return (
       <div className="panel">
@@ -171,6 +187,7 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
             scene={temporalScene}
             trajectories={tempTraj.trajectories}
             objectTracks={objectTracks}
+            shotTransitions={shotTransitions}
             playheadSeconds={tempPlayhead}
             currentShotId={selectedShotId}
             viewMode={tempPreviewMode}
@@ -353,6 +370,23 @@ function samplePlaybackState(
     lookAt: activeShot.look_at_position,
     fov: activeShot.fov,
   };
+}
+
+function buildTimelineEvents(
+  rawEvents: SceneEvent[],
+  semanticEvents: SemanticSceneEvent[],
+): SceneEvent[] {
+  if (semanticEvents.length > 0) {
+    return semanticEvents.map((evt, index) => ({
+      event_id: evt.semantic_id || `sem_evt_${index}`,
+      event_type: evt.label || 'semantic',
+      timestamp: evt.time_start,
+      duration: Math.max(0, evt.time_end - evt.time_start),
+      object_ids: evt.object_ids ?? [],
+      description: evt.summary ?? '',
+    }));
+  }
+  return rawEvents;
 }
 
 function lerpPoint(

@@ -18,6 +18,7 @@ class TemporalShotTrajectory(BaseModel):
     shot_id: str
     time_start: float
     time_end: float
+    transition_in: str = "cut"
     path_type: PathType = PathType.linear
     timed_points: list[TimedTrajectoryPoint] = Field(default_factory=list)
     metrics: TrajectoryMetrics = Field(default_factory=TrajectoryMetrics)

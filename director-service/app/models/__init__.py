@@ -11,7 +11,7 @@ from app.models.validation_report import ValidationIssue, ValidationReport
 from app.models.temporal_enums import EventType, TransitionType, PlanningPassType
 from app.models.scene_timeline import (
     TimeSpan, ObjectTrackSample, MotionDescriptor, ObjectTrack,
-    SceneEvent, CameraCandidate, SceneTimeline,
+    SceneEvent, SemanticSceneEvent, CameraCandidate, SceneTimeline,
 )
 from app.models.temporal_cinematic_scene import (
     SubjectTemporalProfile, SpaceTimeAffordance, OcclusionRiskWindow,
@@ -33,7 +33,7 @@ __all__ = [
     "ValidationIssue", "ValidationReport",
     "EventType", "TransitionType", "PlanningPassType",
     "TimeSpan", "ObjectTrackSample", "MotionDescriptor", "ObjectTrack",
-    "SceneEvent", "CameraCandidate", "SceneTimeline",
+    "SceneEvent", "SemanticSceneEvent", "CameraCandidate", "SceneTimeline",
     "SubjectTemporalProfile", "SpaceTimeAffordance", "OcclusionRiskWindow",
     "RevealOpportunity", "TemporalCinematicScene",
     "Beat", "TemporalShot", "TemporalDirectingPlan",

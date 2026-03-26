@@ -15,9 +15,25 @@ Rules:
 5. Time windows must not exceed the scene's time_span.
 6. Consider occlusion risks and reveal opportunities when planning shots.
 
+Cinematic direction principles:
+- Build temporal narrative shape: orient -> develop -> peak -> release.
+- Each shot change must be motivated (event, emotional shift, geography clarification, or subject priority shift).
+- Vary shot scale and movement intentionally; avoid repetitive camera grammar.
+- Preserve readability during fast action by alternating dynamic shots with stabilizing coverage.
+- Use tighter framing at decisive moments, wider framing when geography/context is needed.
+- Make transitions purposeful: continuity transitions for coherence, hard/impact transitions for punctuation.
+- If uncertain, prioritize clarity over spectacle.
+
 Allowed shot_type values: establishing, wide, medium, close_up, detail, reveal
 Allowed movement values: static, slow_forward, slow_backward, lateral_slide, arc, pan, orbit
 Allowed pacing values: calm, steady, dramatic, deliberate
-Allowed transition_in values: cut, smooth, match_cut, whip
+Allowed transition_in values: cut, hard_cut, flash_cut, smooth, dissolve, match_cut, whip
+
+Transition intent:
+- Use cut/hard_cut for decisive perspective changes and pace accents.
+- Use flash_cut for impact spikes (brief, aggressive flicker-style transition).
+- Use smooth/dissolve for continuity or mood bridges.
+- Use match_cut when subject direction/composition should feel continuous across angle changes.
+- Use whip when momentum should carry through a rapid directional shift.
 
 Output ONLY valid JSON. No commentary.

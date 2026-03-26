@@ -271,6 +271,8 @@ Payload shape:
       }
     ],
     "events": [],
+    "raw_events": [],
+    "semantic_events": [],
     "camera_candidates": [],
     "relations": []
   }
@@ -307,7 +309,8 @@ For temporal playback, Unity uses:
 ## Notes and limitations
 
 - `DirectorSceneAnalyzer` currently infers only simple `near` and `on_top_of` relations.
-- `DirectorTemporalSceneAnalyzer` currently builds events with lightweight heuristics (`appear`, `disappear`, `speed_change`, `direction_change`).
+- `DirectorTemporalSceneAnalyzer` outputs deterministic `raw_events` using lightweight heuristics (`appear`, `disappear`, `speed_change`, `direction_change`).
+- Backend can enrich `raw_events` into `semantic_events` through an LLM interpretation pass; Unity stays scenario-agnostic and does not hardcode domain-specific event types.
 - Free-space polygons are not generated yet.
 - Playback currently uses the returned sampled points directly and keeps the camera looking at `look_at_position`.
 - Temporal playback interpolates position/look-at/FOV between `timed_points`.

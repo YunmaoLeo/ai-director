@@ -5,16 +5,21 @@ from typing import Tuple
 
 _STYLE_PROFILES: dict[str, str] = {
     "balanced": (
-        "Keep framing readable and context-aware with moderate movement intensity and stable transitions."
+        "Keep framing readable and context-aware with moderate movement intensity. "
+        "Alternate orientation and emphasis shots, prefer match_cut/smooth for continuity, "
+        "and reserve hard transitions for meaningful pivots."
     ),
     "dynamic_tracking": (
-        "Prioritize subject continuity under fast motion. Use anticipatory framing and decisive but readable cuts."
+        "Prioritize lead-subject continuity under fast motion. Use anticipatory framing before direction/speed changes, "
+        "mix dynamic tracking with brief stabilizing wides, and favor match_cut/whip/cut where momentum shifts."
     ),
     "narrative_reveal": (
-        "Favor story progression and reveal moments. Build visual tension before key events."
+        "Favor story progression and reveal timing. Build visual tension before key events, "
+        "stage information with controlled pacing, and use reveal/detail framing as payoff."
     ),
     "subject_focus": (
-        "Prioritize one primary subject with tighter composition and reduced context switching."
+        "Prioritize one primary subject with tighter composition and reduced context switching. "
+        "Keep clear subject hierarchy and avoid unnecessary geography resets."
     ),
 }
 

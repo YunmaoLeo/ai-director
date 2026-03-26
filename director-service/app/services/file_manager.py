@@ -1,6 +1,8 @@
 """File manager for saving and loading scenes and pipeline outputs."""
 
 from datetime import datetime, UTC
+import hashlib
+import json
 from pathlib import Path
 from re import sub
 from typing import Any
@@ -10,6 +12,7 @@ from app.models.directing_plan import DirectingPlan
 from app.models.trajectory_plan import TrajectoryPlan
 from app.models.validation_report import ValidationReport
 from app.models.scene_timeline import SceneTimeline
+from app.models.scene_timeline import SemanticSceneEvent
 from app.models.temporal_directing_plan import TemporalDirectingPlan
 from app.models.temporal_trajectory_plan import TemporalTrajectoryPlan
 from app.models.planning_pass import PlanningPassArtifact
@@ -180,6 +183,67 @@ class FileManager:
         logger.info("Saved temporal run metadata to %s", path)
         return path
 
+    # --- Semantic event cache ---
+
+    def load_cached_semantic_events(self, timeline: SceneTimeline) -> list[SemanticSceneEvent] | None:
+        """Load cached semantic events for a timeline snapshot, if available."""
+        cache_path = self._semantic_cache_path()
+        if not cache_path.exists():
+            return None
+        try:
+            payload = load_json(cache_path)
+            entries = payload.get("entries", {})
+            cache_key = self._semantic_cache_key(timeline)
+            raw_events = entries.get(cache_key, {}).get("semantic_events")
+            if not isinstance(raw_events, list):
+                return None
+            parsed: list[SemanticSceneEvent] = []
+            for item in raw_events:
+                if not isinstance(item, dict):
+                    continue
+                parsed.append(SemanticSceneEvent.model_validate(item))
+            return parsed or None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to read semantic event cache from %s: %s", cache_path, exc)
+            return None
+
+    def save_cached_semantic_events(
+        self,
+        timeline: SceneTimeline,
+        semantic_events: list[SemanticSceneEvent],
+    ) -> Path | None:
+        """Persist semantic events cache for a timeline snapshot."""
+        if not semantic_events:
+            return None
+
+        cache_path = self._semantic_cache_path()
+        payload: dict[str, Any]
+        if cache_path.exists():
+            try:
+                payload = load_json(cache_path)
+            except Exception:  # noqa: BLE001
+                payload = {}
+        else:
+            payload = {}
+
+        entries = payload.get("entries")
+        if not isinstance(entries, dict):
+            entries = {}
+            payload["entries"] = entries
+
+        cache_key = self._semantic_cache_key(timeline)
+        entries[cache_key] = {
+            "scene_id": timeline.scene_id,
+            "signature": self._semantic_signature(timeline),
+            "updated_at": datetime.now(UTC).isoformat(),
+            "semantic_events": [pydantic_to_json(event) for event in semantic_events],
+        }
+
+        payload.setdefault("version", 1)
+        save_json(payload, cache_path)
+        logger.info("Saved semantic event cache to %s", cache_path)
+        return cache_path
+
     def load_temporal_run_bundle(self, prefix: str) -> dict[str, Any]:
         """Load a temporal run bundle by prefix."""
         normalized_prefix = self._normalize_prefix(prefix)
@@ -258,3 +322,21 @@ class FileManager:
         if sub(r"[a-zA-Z0-9_]", "", normalized):
             raise ValueError("Invalid run prefix.")
         return normalized
+
+    def _semantic_cache_path(self) -> Path:
+        return self._output_dir / "semantic_event_cache.json"
+
+    def _semantic_cache_key(self, timeline: SceneTimeline) -> str:
+        return f"{self._slugify(timeline.scene_id)}:{self._semantic_signature(timeline)}"
+
+    def _semantic_signature(self, timeline: SceneTimeline) -> str:
+        raw_events = timeline.raw_events or timeline.events
+        payload = {
+            "scene_id": timeline.scene_id,
+            "scene_type": timeline.scene_type,
+            "time_span": pydantic_to_json(timeline.time_span),
+            "objects_static": [pydantic_to_json(obj) for obj in timeline.objects_static],
+            "raw_events": [pydantic_to_json(event) for event in raw_events],
+        }
+        blob = json.dumps(payload, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+        return hashlib.sha256(blob.encode("utf-8")).hexdigest()

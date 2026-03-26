@@ -93,6 +93,7 @@ class TemporalPromptBuilder:
             objects_text=self._format_static_objects(timeline),
             subject_profiles_text=self._format_subject_profiles(temporal_cinematic),
             event_summary=temporal_cinematic.event_summary,
+            semantic_event_directives_text=self._format_semantic_event_directives(timeline),
             occlusion_risks_text=self._format_occlusion_risks(temporal_cinematic),
             reveal_opportunities_text=self._format_reveal_opportunities(temporal_cinematic),
             beats_text=self._format_beats(beats),
@@ -233,3 +234,17 @@ class TemporalPromptBuilder:
             else:
                 lines.append(f"- [{key}] {value}")
         return "\n".join(lines) if lines else "All deterministic checks passed."
+
+    def _format_semantic_event_directives(self, timeline: SceneTimeline) -> str:
+        semantic_events = timeline.semantic_events or []
+        if not semantic_events:
+            return "No semantic event directives."
+        lines: list[str] = []
+        for event in semantic_events:
+            subjects = ", ".join(event.object_ids) if event.object_ids else "none"
+            lines.append(
+                f"- [{event.time_start:.1f}s-{event.time_end:.1f}s] "
+                f"{event.label}: role={event.dramatic_role}, subjects=[{subjects}], "
+                f"camera_implication=\"{event.camera_implication}\""
+            )
+        return "\n".join(lines)

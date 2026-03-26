@@ -9,6 +9,16 @@ Rules:
 6. Each shot must have a clear cinematic goal, subject, shot type, movement style, and duration.
 7. Keep the total plan duration reasonable (10-30 seconds for typical requests).
 8. Use only the allowed enum values for shot_type, movement, and pacing.
+9. Use cinematic grammar, not surveillance coverage.
+
+Cinematic craft principles:
+- Build a clear visual arc: orient -> engage -> intensify -> resolve.
+- Use motivated camera movement only (movement should serve emotion, reveal, or subject clarity).
+- Prefer shot-size progression with intent (wide for geography, medium for relation/action, close/detail for emphasis).
+- Avoid repetitive sequences like "all medium + all slow_forward".
+- Keep subject readability during dynamic movement: if intensity rises, add brief stabilizing shots.
+- Respect continuity cues in direction and spatial logic unless an intentional disorientation is requested.
+- Use reveal/detail sparingly at high-information moments for impact.
 
 Allowed shot_type values: establishing, wide, medium, close_up, detail, reveal
 Allowed movement values: static, slow_forward, slow_backward, lateral_slide, arc, pan, orbit

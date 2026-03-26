@@ -1,5 +1,6 @@
 """Tests for temporal API endpoints."""
 
+import copy
 import pytest
 from fastapi.testclient import TestClient
 
@@ -76,6 +77,21 @@ class TestTemporalGenerateEndpoint:
         })
         assert response.status_code == 400
 
+    def test_generate_with_raw_events_only_payload(self, client, walking_actor_data):
+        payload = copy.deepcopy(walking_actor_data)
+        payload["raw_events"] = payload.get("events", [])
+        payload.pop("events", None)
+        payload.pop("semantic_events", None)
+        response = client.post("/api/temporal/generate", json={
+            "scene_id": "temporal_walking_actor",
+            "intent": "Follow actor timing beats",
+            "scene_timeline": payload,
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["scene_timeline"]["raw_events"]) >= 1
+        assert len(data["scene_timeline"]["semantic_events"]) >= 1
+
     def test_temporal_plan_has_time_windows(self, client, walking_actor_data):
         response = client.post("/api/temporal/generate", json={
             "scene_id": "temporal_walking_actor",
@@ -123,6 +139,8 @@ class TestTemporalRunsEndpoint:
         payload = detail.json()
         assert "scene_timeline" in payload
         assert payload["scene_timeline"]["scene_id"] == "temporal_walking_actor"
+        assert "raw_events" in payload["scene_timeline"]
+        assert "semantic_events" in payload["scene_timeline"]
 
     def test_temporal_styles_endpoint(self, client):
         response = client.get("/api/temporal/capabilities")

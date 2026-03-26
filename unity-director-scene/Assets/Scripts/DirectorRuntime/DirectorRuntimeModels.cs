@@ -232,6 +232,21 @@ namespace AIDirector.UnityRuntime
     }
 
     [Serializable]
+    public class SemanticSceneEventData
+    {
+        public string semantic_id;
+        public string label;
+        public float time_start;
+        public float time_end;
+        public List<string> object_ids = new List<string>();
+        public string summary;
+        public float salience = 0.5f;
+        public float confidence = 0.5f;
+        public List<string> evidence_event_ids = new List<string>();
+        public List<string> tags = new List<string>();
+    }
+
+    [Serializable]
     public class CameraCandidateData
     {
         public string region_id;
@@ -253,7 +268,10 @@ namespace AIDirector.UnityRuntime
         public TimeSpanData time_span = new TimeSpanData();
         public List<SceneObjectData> objects_static = new List<SceneObjectData>();
         public List<ObjectTrackData> object_tracks = new List<ObjectTrackData>();
+        // Backward-compat raw event field retained for older backend/frontend builds.
         public List<SceneEventData> events = new List<SceneEventData>();
+        public List<SceneEventData> raw_events = new List<SceneEventData>();
+        public List<SemanticSceneEventData> semantic_events = new List<SemanticSceneEventData>();
         public List<CameraCandidateData> camera_candidates = new List<CameraCandidateData>();
         public List<SpatialRelationData> relations = new List<SpatialRelationData>();
         public FreeSpaceData free_space;

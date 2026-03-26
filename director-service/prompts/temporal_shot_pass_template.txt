@@ -13,6 +13,9 @@ Time Span: {time_start}s to {time_end}s ({duration}s total)
 ### Events
 {event_summary}
 
+### Semantic Event Directives (for camera intent)
+{semantic_event_directives_text}
+
 ### Occlusion Risks
 {occlusion_risks_text}
 
@@ -48,7 +51,30 @@ Guidelines:
 - Subject must be visible during the shot's time window
 - Avoid shots during high occlusion risk windows, or use them dramatically
 - Leverage reveal opportunities for reveal or dramatic shots
+- Use semantic event directives explicitly:
+  - `dramatic_role=setup`: prioritize orientation/context
+  - `dramatic_role=develop`: prioritize continuity and readable escalation
+  - `dramatic_role=peak`: prioritize decisive framing (tighten emphasis)
+  - `dramatic_role=release`: provide aftermath/context reset
+- Let `camera_implication` influence shot_type, movement, and transition choice.
+- Keep cinematic variety and intention:
+  - Avoid repeating identical shot_type + movement combinations too many times in a row
+  - Use wide/establishing shots to reset geography after rapid coverage
+  - Use close_up/detail at commitment moments (decision, lead change, climax, reveal)
+  - During high-speed action, interleave dynamic tracking with at least one readability shot
+- Use transition_in intentionally (not all smooth):
+  - cut/hard_cut for decisive switch
+  - flash_cut for brief impact punctuation
+  - smooth/dissolve for continuity
+  - match_cut for motion/composition continuity
+  - whip for momentum carry
 - Minimum shot duration: 1.5s
 - Total shots should cover the full timeline without large gaps
+- Prefer non-uniform shot durations to create rhythm (unless intent asks uniform pacing)
+
+Reference shot grammar example (format inspiration only):
+- entering a beat: wide or medium to orient action
+- in-beat escalation: medium/reveal with lateral_slide or arc
+- beat payoff: close_up/detail or reveal with purposeful transition
 
 Output ONLY valid JSON.

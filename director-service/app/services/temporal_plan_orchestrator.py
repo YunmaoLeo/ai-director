@@ -475,7 +475,30 @@ def _parse_beats(data: dict, timeline: SceneTimeline) -> list[Beat]:
 _VALID_SHOT_TYPES = {"establishing", "wide", "medium", "close_up", "detail", "reveal"}
 _VALID_MOVEMENTS = {"static", "slow_forward", "slow_backward", "lateral_slide", "arc", "pan", "orbit"}
 _VALID_PACING = {"calm", "steady", "dramatic", "deliberate"}
-_VALID_TRANSITIONS = {"cut", "smooth", "match_cut", "whip"}
+_VALID_TRANSITIONS = {"cut", "hard_cut", "flash_cut", "smooth", "dissolve", "match_cut", "whip"}
+
+_TRANSITION_ALIASES = {
+    "hardcut": "hard_cut",
+    "hard-cut": "hard_cut",
+    "smash_cut": "hard_cut",
+    "smash-cut": "hard_cut",
+    "flash": "flash_cut",
+    "flashcut": "flash_cut",
+    "flash-cut": "flash_cut",
+    "flicker": "flash_cut",
+    "flicker_cut": "flash_cut",
+    "flicker-cut": "flash_cut",
+    "crossfade": "dissolve",
+    "cross_fade": "dissolve",
+}
+
+
+def _normalize_transition(value: str) -> str:
+    normalized = value.strip().lower()
+    normalized = _TRANSITION_ALIASES.get(normalized, normalized)
+    if normalized not in _VALID_TRANSITIONS:
+        return "cut"
+    return normalized
 
 
 def _parse_shots(data: dict, timeline: SceneTimeline) -> list[TemporalShot]:
@@ -497,9 +520,7 @@ def _parse_shots(data: dict, timeline: SceneTimeline) -> list[TemporalShot]:
         pacing = str(raw.get("pacing", "steady")).lower()
         if pacing not in _VALID_PACING:
             pacing = "steady"
-        transition = str(raw.get("transition_in", "cut")).lower()
-        if transition not in _VALID_TRANSITIONS:
-            transition = "cut"
+        transition = _normalize_transition(str(raw.get("transition_in", "cut")))
 
         shots.append(TemporalShot(
             shot_id=str(raw.get("shot_id", f"shot_{len(shots) + 1}")),

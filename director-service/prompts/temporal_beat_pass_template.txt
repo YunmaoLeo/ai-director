@@ -43,5 +43,17 @@ Guidelines:
 - 2-5 beats is typical for a {duration}s timeline
 - Align beat transitions with events when possible
 - Consider subject visibility windows
+- Build emotional rhythm, not equal slices only:
+  - Setup / orientation beat
+  - Development / pursuit beat(s)
+  - Peak event beat
+  - Resolution beat
+- If events are dense, group them into coherent dramatic phases rather than one beat per event.
+
+Reference beat style example (do not copy literally):
+- beat_1: orient space and actors, establish stakes
+- beat_2: rising interaction or pursuit, increase urgency
+- beat_3: decisive event window, maximum emphasis
+- beat_4: aftermath or resolution, release tension
 
 Output ONLY valid JSON.

@@ -344,6 +344,8 @@ class MockTemporalLLMClient(LLMClient):
     def generate(self, system_prompt: str, user_prompt: str, model_override: str | None = None) -> str:
         prompt_lower = user_prompt.lower()
 
+        if "semantic event interpretation task" in prompt_lower:
+            return self._semantic_event_response(user_prompt)
         if "style selection task" in prompt_lower or "pre-pass" in prompt_lower:
             return self._style_response(user_prompt)
         if "global beat planning" in prompt_lower or "pass 1 of 3" in prompt_lower:
@@ -360,19 +362,31 @@ class MockTemporalLLMClient(LLMClient):
         if any(token in prompt_lower for token in ["fast", "high-speed", "track", "chase", "pursue", "overtake", "race"]):
             style_profile = "dynamic_tracking"
             style_rationale = "The intent emphasizes fast motion and continuity under movement."
-            style_notes = "Prioritize anticipatory framing, continuity on primary subject, and readable cuts."
+            style_notes = (
+                "Prioritize anticipatory framing and lead-subject continuity. "
+                "Use match_cut/whip at momentum shifts, but include brief wide resets to preserve readability."
+            )
         elif any(token in prompt_lower for token in ["reveal", "discover", "story", "arc", "build-up"]):
             style_profile = "narrative_reveal"
             style_rationale = "The intent emphasizes event progression and reveal timing."
-            style_notes = "Use controlled pacing and event-aligned transitions."
+            style_notes = (
+                "Use controlled pacing, hold context before reveal beats, "
+                "then tighten framing for payoff moments with smooth/dissolve-biased transitions."
+            )
         elif any(token in prompt_lower for token in ["focus", "close", "detail", "single subject"]):
             style_profile = "subject_focus"
             style_rationale = "The intent emphasizes a dominant subject and tighter composition."
-            style_notes = "Reduce context switching and maintain close subject readability."
+            style_notes = (
+                "Reduce context switching, maintain clear subject hierarchy, "
+                "and reserve wide resets for necessary geography clarification."
+            )
         else:
             style_profile = "balanced"
             style_rationale = "No dominant policy signal; balanced policy is safest."
-            style_notes = "Keep motion coherent with moderate contextual coverage."
+            style_notes = (
+                "Keep motion coherent with moderate contextual coverage, "
+                "alternate orientation and emphasis shots, and avoid repetitive camera grammar."
+            )
         return json.dumps(
             {
                 "style_profile": style_profile,
@@ -381,6 +395,45 @@ class MockTemporalLLMClient(LLMClient):
             },
             indent=2,
         )
+
+    def _semantic_event_response(self, prompt: str) -> str:
+        event_lines = []
+        for line in prompt.splitlines():
+            if line.strip().startswith("- id="):
+                event_lines.append(line.strip()[2:])
+
+        semantic_events = []
+        for idx, line in enumerate(event_lines[:10]):
+            # Format produced by TemporalEventInterpreter:
+            # id=evt_0001, type=speed_change, t=1.20, d=0.00, objects=a,b, desc=text
+            parts = {}
+            for token in line.split(", "):
+                if "=" not in token:
+                    continue
+                key, value = token.split("=", 1)
+                parts[key.strip()] = value.strip()
+
+            event_id = parts.get("id", f"evt_{idx:04d}")
+            event_type = parts.get("type", "moment")
+            timestamp = self._to_float(parts.get("t"), 0.0)
+            duration = max(0.0, self._to_float(parts.get("d"), 0.0))
+            object_ids = [item for item in parts.get("objects", "").split(",") if item]
+            description = parts.get("desc", "").strip()
+
+            semantic_events.append({
+                "semantic_id": f"sem_{idx + 1:04d}",
+                "label": event_type.replace("_", " ").title(),
+                "time_start": timestamp,
+                "time_end": timestamp + max(duration, 0.05),
+                "object_ids": object_ids,
+                "summary": description or f"{event_type} moment around {timestamp:.1f}s.",
+                "salience": 0.8 if event_type in {"interaction", "occlusion_start", "occlusion_end"} else 0.58,
+                "confidence": 0.72,
+                "evidence_event_ids": [event_id],
+                "tags": [event_type],
+            })
+
+        return json.dumps({"semantic_events": semantic_events}, indent=2)
 
     def _beat_response(self, prompt: str) -> str:
         time_start, time_end = self._extract_time_span(prompt)
@@ -443,7 +496,7 @@ class MockTemporalLLMClient(LLMClient):
                     "pacing": "dramatic",
                     "constraints": {"avoid_occlusion": True},
                     "rationale": "Lateral tracking for moving subject continuity",
-                    "transition_in": "smooth",
+                    "transition_in": "flash_cut",
                     "beat_id": "beat_1",
                 },
                 {
@@ -457,7 +510,7 @@ class MockTemporalLLMClient(LLMClient):
                     "pacing": "dramatic",
                     "constraints": {"end_on_subject": True, "avoid_occlusion": True},
                     "rationale": "Finish with continuity-preserving directional motion",
-                    "transition_in": "match_cut",
+                    "transition_in": "whip",
                     "beat_id": "beat_2",
                 },
             ]
@@ -502,7 +555,7 @@ class MockTemporalLLMClient(LLMClient):
                     "pacing": "dramatic",
                     "constraints": {"end_on_subject": True},
                     "rationale": "Dramatic close to emphasize subject",
-                    "transition_in": "smooth",
+                    "transition_in": "dissolve",
                     "beat_id": "beat_2",
                 },
             ]
@@ -540,6 +593,12 @@ class MockTemporalLLMClient(LLMClient):
         if m:
             return float(m.group(1)), float(m.group(2))
         return 0.0, 10.0
+
+    def _to_float(self, value: str | None, fallback: float) -> float:
+        try:
+            return float(value) if value is not None else fallback
+        except ValueError:
+            return fallback
 
     def _extract_subject_ids(self, prompt: str) -> list[str]:
         import re as _re

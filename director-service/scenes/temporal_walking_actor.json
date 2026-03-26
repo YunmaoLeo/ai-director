@@ -87,6 +87,30 @@
       "description": "Actor begins to slow down near destination"
     }
   ],
+  "raw_events": [
+    {
+      "event_id": "evt_1",
+      "event_type": "speed_change",
+      "timestamp": 7.0,
+      "duration": 0.0,
+      "object_ids": ["actor_1"],
+      "description": "Actor begins to slow down near destination"
+    }
+  ],
+  "semantic_events": [
+    {
+      "semantic_id": "sem_0001",
+      "label": "Approach And Deceleration",
+      "time_start": 6.8,
+      "time_end": 8.4,
+      "object_ids": ["actor_1"],
+      "summary": "The actor transitions from steady traversal into a clear deceleration phase near the destination zone.",
+      "salience": 0.64,
+      "confidence": 0.78,
+      "evidence_event_ids": ["evt_1"],
+      "tags": ["tempo_shift", "arrival_phase"]
+    }
+  ],
   "camera_candidates": [
     {
       "region_id": "cam_region_1",

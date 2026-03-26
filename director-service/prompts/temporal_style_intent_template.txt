@@ -29,5 +29,11 @@ Guidelines:
 - Prefer narrative_reveal when event progression and reveal timing matter.
 - Prefer subject_focus when one actor/object should dominate attention.
 - If uncertain, use balanced.
+- `style_notes` should include concrete camera-language guidance (coverage rhythm, transition bias, framing priority), not generic adjectives.
+
+Reference style_notes examples:
+- dynamic_tracking: "Maintain lead-subject continuity, use match_cut/whip on momentum shifts, insert brief wide resets for readability."
+- narrative_reveal: "Hold context before reveal, time close/detail framing at event peaks, prefer dissolve/smooth unless impact is required."
+- subject_focus: "Keep one primary subject anchored in frame hierarchy, reduce unnecessary context switches."
 
 Output ONLY valid JSON.

@@ -179,6 +179,19 @@ export interface SceneEvent {
   description: string;
 }
 
+export interface SemanticSceneEvent {
+  semantic_id: string;
+  label: string;
+  time_start: number;
+  time_end: number;
+  object_ids: string[];
+  summary: string;
+  salience: number;
+  confidence: number;
+  evidence_event_ids: string[];
+  tags: string[];
+}
+
 export interface SceneTimeline {
   scene_id: string;
   scene_name: string;
@@ -188,7 +201,9 @@ export interface SceneTimeline {
   time_span: TimeSpan;
   objects_static: SceneObject[];
   object_tracks: ObjectTrack[];
-  events: SceneEvent[];
+  events?: SceneEvent[];
+  raw_events?: SceneEvent[];
+  semantic_events?: SemanticSceneEvent[];
   camera_candidates: unknown[];
   relations: SpatialRelation[];
 }
@@ -242,6 +257,7 @@ export interface TemporalShotTrajectory {
   shot_id: string;
   time_start: number;
   time_end: number;
+  transition_in?: string;
   path_type: string;
   timed_points: TimedTrajectoryPoint[];
   metrics: TrajectoryMetrics;

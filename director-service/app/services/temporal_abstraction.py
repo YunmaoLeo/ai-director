@@ -5,7 +5,7 @@ then adds temporal-specific analysis layers.
 """
 
 from app.models.scene_summary import SceneSummary
-from app.models.scene_timeline import SceneTimeline, ObjectTrack, SceneEvent
+from app.models.scene_timeline import SceneTimeline, ObjectTrack
 from app.models.temporal_cinematic_scene import (
     TemporalCinematicScene,
     SubjectTemporalProfile,
@@ -154,6 +154,7 @@ class TemporalAbstractor:
         """Time-windowed filming opportunities from camera candidates + tracks."""
         affordances: list[SpaceTimeAffordance] = []
         idx = 0
+        raw_events = timeline.raw_events or timeline.events
 
         for cc in timeline.camera_candidates:
             # Find tracks active during this camera candidate window
@@ -180,7 +181,7 @@ class TemporalAbstractor:
             idx += 1
 
         # Also generate affordances from events
-        for event in timeline.events:
+        for event in raw_events:
             if event.event_type in (EventType.interaction.value, "interaction"):
                 affordances.append(SpaceTimeAffordance(
                     affordance_id=f"sta_{idx}",
@@ -273,8 +274,9 @@ class TemporalAbstractor:
     ) -> list[RevealOpportunity]:
         """Detect reveal opportunities from appear and occlusion_end events."""
         opportunities: list[RevealOpportunity] = []
+        raw_events = timeline.raw_events or timeline.events
 
-        for event in timeline.events:
+        for event in raw_events:
             if event.event_type in (EventType.appear.value, "appear"):
                 for obj_id in event.object_ids:
                     opportunities.append(RevealOpportunity(
@@ -296,17 +298,30 @@ class TemporalAbstractor:
 
     def _summarize_events(self, timeline: SceneTimeline) -> str:
         """Textual summary of timeline events for LLM context."""
-        if not timeline.events:
+        raw_events = timeline.raw_events or timeline.events
+        semantic_events = timeline.semantic_events
+
+        if not raw_events and not semantic_events:
             return "No notable events in this timeline."
 
-        lines = [
-            f"Timeline spans {timeline.time_span.duration:.1f}s "
-            f"with {len(timeline.events)} events:"
-        ]
-        for event in timeline.events:
-            lines.append(
-                f"  - [{event.timestamp:.1f}s] {event.event_type}: {event.description}"
-            )
+        lines = [f"Timeline spans {timeline.time_span.duration:.1f}s."]
+        if semantic_events:
+            lines.append(f"Semantic event highlights ({len(semantic_events)}):")
+            for event in semantic_events:
+                lines.append(
+                    f"  - [{event.time_start:.1f}s-{event.time_end:.1f}s] "
+                    f"{event.label} "
+                    f"(role={event.dramatic_role}, camera={event.camera_implication}): "
+                    f"{event.summary}"
+                )
+            if raw_events:
+                lines.append(f"Raw signal events captured: {len(raw_events)}.")
+        else:
+            lines.append(f"Raw timeline events ({len(raw_events)}):")
+            for event in raw_events:
+                lines.append(
+                    f"  - [{event.timestamp:.1f}s] {event.event_type}: {event.description}"
+                )
         return "\n".join(lines)
 
     def _build_replay_description(
@@ -326,7 +341,9 @@ class TemporalAbstractor:
             subjects_text = "none"
 
         track_count = len(timeline.object_tracks)
-        event_count = len(timeline.events)
+        raw_event_count = len(timeline.raw_events or timeline.events)
+        semantic_event_count = len(timeline.semantic_events)
+        event_count = semantic_event_count or raw_event_count
         duration = timeline.time_span.duration
         room_text = (
             f"{timeline.scene_name} ({timeline.scene_type}), "
@@ -337,6 +354,11 @@ class TemporalAbstractor:
             f"Replay timeline summary for {room_text}.",
             f"Time window: {timeline.time_span.start:.1f}s to {timeline.time_span.end:.1f}s ({duration:.1f}s).",
             f"Tracked dynamic subjects: {track_count}. Notable events: {event_count}.",
+            (
+                f"Event layers: raw={raw_event_count}, semantic={semantic_event_count}."
+                if semantic_event_count
+                else f"Event layers: raw={raw_event_count}."
+            ),
             f"Primary temporal subjects: {subjects_text}.",
             "Event timeline:",
             event_summary,

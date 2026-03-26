@@ -10,6 +10,7 @@ from app.models.temporal_trajectory_plan import TemporalTrajectoryPlan
 from app.models.validation_report import ValidationReport
 from app.models.planning_pass import PlanningPassArtifact
 from app.services.temporal_abstraction import TemporalAbstractor
+from app.services.temporal_event_interpreter import TemporalEventInterpreter
 from app.services.temporal_plan_orchestrator import TemporalPlanOrchestrator
 from app.services.temporal_trajectory_solver import TemporalTrajectorySolver
 from app.services.temporal_plan_validator import TemporalPlanValidator
@@ -41,6 +42,7 @@ class TemporalPlanPipeline:
         scenes_dir: str | Path = "scenes",
     ):
         self._abstractor = TemporalAbstractor()
+        self._event_interpreter = TemporalEventInterpreter()
         if llm_provider == "mock":
             self._llm_client = MockTemporalLLMClient()
         else:
@@ -61,6 +63,30 @@ class TemporalPlanPipeline:
     ) -> TemporalPipelineResult:
         """Run the full temporal planning pipeline."""
         logger.info("Running temporal pipeline for scene_id=%s", timeline.scene_id)
+
+        if not timeline.raw_events and timeline.events:
+            timeline.raw_events = list(timeline.events)
+        if not timeline.events and timeline.raw_events:
+            timeline.events = list(timeline.raw_events)
+
+        if not timeline.semantic_events:
+            cached_semantic_events = self._file_manager.load_cached_semantic_events(timeline)
+            if cached_semantic_events:
+                logger.info(
+                    "Loaded %d semantic events from cache for scene_id=%s",
+                    len(cached_semantic_events),
+                    timeline.scene_id,
+                )
+                timeline.semantic_events = cached_semantic_events
+            else:
+                logger.info("Interpreting semantic timeline events from raw event layer...")
+                timeline.semantic_events = self._event_interpreter.interpret(
+                    timeline=timeline,
+                    intent=intent,
+                    llm_client=self._llm_client,
+                )
+                if timeline.semantic_events:
+                    self._file_manager.save_cached_semantic_events(timeline, timeline.semantic_events)
 
         # Step 1: Temporal abstraction
         logger.info("Building temporal cinematic scene abstraction...")

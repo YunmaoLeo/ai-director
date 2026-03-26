@@ -12,6 +12,9 @@ interface Props {
   currentCameraPosition?: [number, number, number] | null;
   currentLookAtPosition?: [number, number, number] | null;
   currentShotId?: string | null;
+  objectPositionOverrides?: Record<string, [number, number, number]>;
+  objectVisibilityOverrides?: Record<string, boolean>;
+  highlightedObjectIds?: string[];
   width?: number;
   height?: number;
 }
@@ -23,6 +26,9 @@ export default function TopDownCanvas({
   currentCameraPosition,
   currentLookAtPosition,
   currentShotId,
+  objectPositionOverrides,
+  objectVisibilityOverrides,
+  highlightedObjectIds,
   width = 500,
   height = 400,
 }: Props) {
@@ -61,18 +67,30 @@ export default function TopDownCanvas({
     ctx.strokeRect(rx, rz, scene.bounds.width * scale, scene.bounds.length * scale);
 
     // Draw objects
+    const highlighted = new Set(highlightedObjectIds ?? []);
     for (const obj of scene.objects) {
-      const [cx, cz] = toCanvas(obj.position[0], obj.position[2]);
+      const position = objectPositionOverrides?.[obj.id] ?? obj.position;
+      const [cx, cz] = toCanvas(position[0], position[2]);
       const w = obj.size[0] * scale;
       const d = obj.size[2] * scale;
 
-      ctx.fillStyle = getCategoryColor(obj.category);
-      ctx.globalAlpha = 0.6;
+      const objectColor = resolveObjectColor(obj.category, obj.name, obj.id);
+      ctx.fillStyle = objectColor;
+      const visible = objectVisibilityOverrides?.[obj.id];
+      ctx.globalAlpha = visible === false ? 0.24 : 0.72;
       ctx.fillRect(cx - w / 2, cz - d / 2, w, d);
       ctx.globalAlpha = 1.0;
-      ctx.strokeStyle = '#aaa';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = highlighted.has(obj.id) ? '#58a6ff' : shadeHex(objectColor, -0.28);
+      ctx.lineWidth = highlighted.has(obj.id) ? 2 : 1;
       ctx.strokeRect(cx - w / 2, cz - d / 2, w, d);
+
+      if (highlighted.has(obj.id)) {
+        ctx.strokeStyle = '#58a6ff';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.strokeRect(cx - w / 2 - 3, cz - d / 2 - 3, w + 6, d + 6);
+        ctx.setLineDash([]);
+      }
 
       // Label
       ctx.fillStyle = '#ddd';
@@ -184,6 +202,9 @@ export default function TopDownCanvas({
     currentCameraPosition,
     currentLookAtPosition,
     currentShotId,
+    objectPositionOverrides,
+    objectVisibilityOverrides,
+    highlightedObjectIds,
     width,
     height,
   ]);
@@ -205,6 +226,34 @@ function getCategoryColor(category: string): string {
     lighting: '#FFD166',
     equipment: '#4A7C59',
     decoration: '#8B5E3C',
+    vehicle: '#3FA7FF',
+    character: '#FF8A3D',
   };
-  return map[category] || '#555';
+  return map[category] || '#666';
+}
+
+function resolveObjectColor(category: string, name?: string, id?: string): string {
+  const key = `${id ?? ''} ${name ?? ''} ${category ?? ''}`.toLowerCase();
+
+  if (key.includes('car_red') || key.includes('red car') || key.includes(' red ')) return '#E53935';
+  if (key.includes('car_blue') || key.includes('blue car') || key.includes(' blue ')) return '#1E88E5';
+  if (key.includes('green')) return '#43A047';
+  if (key.includes('yellow')) return '#FDD835';
+  if (key.includes('orange')) return '#FB8C00';
+  if (key.includes('purple')) return '#8E24AA';
+  if (key.includes('black')) return '#424242';
+  if (key.includes('white')) return '#ECEFF1';
+
+  return getCategoryColor((category ?? '').toLowerCase());
+}
+
+function shadeHex(hex: string, amount: number): string {
+  const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+  if (normalized.length !== 6) return hex;
+  const clamp = (v: number) => Math.max(0, Math.min(255, v));
+  const factor = 1 + amount;
+  const r = clamp(Math.round(parseInt(normalized.slice(0, 2), 16) * factor));
+  const g = clamp(Math.round(parseInt(normalized.slice(2, 4), 16) * factor));
+  const b = clamp(Math.round(parseInt(normalized.slice(4, 6), 16) * factor));
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }

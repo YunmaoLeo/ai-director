@@ -4,7 +4,7 @@ import pytest
 
 from app.models.scene_timeline import (
     SceneTimeline, TimeSpan, ObjectTrackSample, ObjectTrack,
-    MotionDescriptor, SceneEvent, CameraCandidate,
+    MotionDescriptor, SceneEvent, CameraCandidate, SemanticSceneEvent,
 )
 from app.models.temporal_enums import EventType, TransitionType, PlanningPassType
 from app.models.temporal_directing_plan import Beat, TemporalShot, TemporalDirectingPlan
@@ -64,6 +64,17 @@ class TestSceneTimeline:
         assert tl.events[0].event_type == "occlusion_start"
         assert tl.events[1].event_type == "occlusion_end"
 
+    def test_semantic_event_defaults(self):
+        event = SemanticSceneEvent(
+            semantic_id="sem_0001",
+            label="Lead Change",
+            time_start=1.0,
+            time_end=1.6,
+            summary="Blue briefly overtakes red.",
+        )
+        assert event.dramatic_role == "develop"
+        assert event.camera_implication == "maintain_subject_continuity"
+
 
 class TestTemporalEnums:
     def test_event_types(self):
@@ -72,6 +83,7 @@ class TestTemporalEnums:
 
     def test_transition_types(self):
         assert TransitionType.cut.value == "cut"
+        assert TransitionType.flash_cut.value == "flash_cut"
         assert TransitionType.smooth.value == "smooth"
 
     def test_planning_pass_types(self):

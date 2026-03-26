@@ -119,18 +119,18 @@ namespace AIDirector.UnityRuntime
                         var wasVisible = GetOrDefault(previousVisibleById, objectId, true);
                         if (!wasVisible && visible)
                         {
-                            timeline.events.Add(CreateEvent(ref eventCounter, "appear", now, 0f, objectId, $"{objectId} became visible."));
+                            AddRawEvent(timeline, CreateEvent(ref eventCounter, "appear", now, 0f, objectId, $"{objectId} became visible."));
                         }
                         else if (wasVisible && !visible)
                         {
-                            timeline.events.Add(CreateEvent(ref eventCounter, "disappear", now, 0f, objectId, $"{objectId} became hidden."));
+                            AddRawEvent(timeline, CreateEvent(ref eventCounter, "disappear", now, 0f, objectId, $"{objectId} became hidden."));
                         }
 
                         var prevVelocity = GetOrDefault(previousVelocityById, objectId, Vector3.zero);
                         var speedDelta = Mathf.Abs(velocity.magnitude - prevVelocity.magnitude);
                         if (visible && speedDelta >= speedChangeThreshold)
                         {
-                            timeline.events.Add(CreateEvent(ref eventCounter, "speed_change", now, 0f, objectId, $"{objectId} speed changed."));
+                            AddRawEvent(timeline, CreateEvent(ref eventCounter, "speed_change", now, 0f, objectId, $"{objectId} speed changed."));
                         }
 
                         if (visible && velocity.sqrMagnitude > 0.001f && prevVelocity.sqrMagnitude > 0.001f)
@@ -138,7 +138,7 @@ namespace AIDirector.UnityRuntime
                             var directionDot = Vector3.Dot(velocity.normalized, prevVelocity.normalized);
                             if (directionDot < directionChangeDotThreshold)
                             {
-                                timeline.events.Add(CreateEvent(ref eventCounter, "direction_change", now, 0f, objectId, $"{objectId} direction changed."));
+                                AddRawEvent(timeline, CreateEvent(ref eventCounter, "direction_change", now, 0f, objectId, $"{objectId} direction changed."));
                             }
                         }
                     }
@@ -316,6 +316,17 @@ namespace AIDirector.UnityRuntime
             evt.object_ids.Add(objectId);
             eventCounter++;
             return evt;
+        }
+
+        private static void AddRawEvent(SceneTimelineData timeline, SceneEventData sceneEvent)
+        {
+            if (timeline == null || sceneEvent == null)
+            {
+                return;
+            }
+
+            timeline.events.Add(sceneEvent);
+            timeline.raw_events.Add(sceneEvent);
         }
 
         private static Vector3 ForwardToEuler(float[] forward)

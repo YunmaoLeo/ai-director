@@ -82,6 +82,12 @@ export default function TemporalTimeline({
       ctx.font = '10px monospace';
       const label = `${shot.shot_id} (${shot.shot_type})`;
       ctx.fillText(label, x0 + 3, shotRowY + 16, x1 - x0 - 6);
+      if (i > 0) {
+        const transition = shot.transition_in || 'cut';
+        ctx.fillStyle = isSelected ? '#3b2f00' : '#e5eefc';
+        ctx.font = '9px monospace';
+        ctx.fillText(`in:${transition}`, x0 + 3, shotRowY + 26, x1 - x0 - 6);
+      }
     });
 
     // Draw event markers (below shots)
