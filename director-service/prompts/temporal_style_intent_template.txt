@@ -11,13 +11,13 @@ Time Span: {time_start}s to {time_end}s ({duration}s total)
 
 ## Style Selection Task (Pre-Pass)
 
-Choose the best cinematic style profile for this timeline and intent.
+Choose the best director policy for this timeline and intent.
 
 Allowed style_profile values:
-- default
-- motorsport_f1
-- sports_broadcast
-- cinematic_drama
+- balanced
+- dynamic_tracking
+- narrative_reveal
+- subject_focus
 
 Output a JSON object with:
 - style_profile: one allowed value
@@ -25,9 +25,9 @@ Output a JSON object with:
 - style_notes: optional execution notes for downstream shot planning
 
 Guidelines:
-- Prefer motorsport_f1 only when timeline intent implies race-like fast tracking.
-- Prefer sports_broadcast for general live-action sports coverage.
-- Prefer cinematic_drama for emotional or story-driven movement.
-- If uncertain, use default.
+- Prefer dynamic_tracking when high-speed motion continuity is critical.
+- Prefer narrative_reveal when event progression and reveal timing matter.
+- Prefer subject_focus when one actor/object should dominate attention.
+- If uncertain, use balanced.
 
 Output ONLY valid JSON.

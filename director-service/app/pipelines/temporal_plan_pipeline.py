@@ -13,7 +13,6 @@ from app.services.temporal_abstraction import TemporalAbstractor
 from app.services.temporal_plan_orchestrator import TemporalPlanOrchestrator
 from app.services.temporal_trajectory_solver import TemporalTrajectorySolver
 from app.services.temporal_plan_validator import TemporalPlanValidator
-from app.services.cinematic_style import build_style_brief
 from app.services.file_manager import FileManager
 from app.services.llm_client import create_llm_client, MockTemporalLLMClient
 from app.utils.logger import get_logger
@@ -29,8 +28,8 @@ class TemporalPipelineResult:
     temporal_trajectory_plan: TemporalTrajectoryPlan
     validation_report: ValidationReport
     pass_artifacts: list[PlanningPassArtifact] = field(default_factory=list)
-    cinematic_style: str = "default"
-    style_rationale: str = ""
+    director_policy: str = "balanced"
+    director_rationale: str = ""
 
 
 class TemporalPlanPipeline:
@@ -57,8 +56,8 @@ class TemporalPlanPipeline:
         intent: str,
         save: bool = True,
         prefix: str = "",
-        style_profile: str | None = None,
-        style_notes: str | None = None,
+        director_hint: str | None = None,
+        director_notes: str | None = None,
     ) -> TemporalPipelineResult:
         """Run the full temporal planning pipeline."""
         logger.info("Running temporal pipeline for scene_id=%s", timeline.scene_id)
@@ -69,16 +68,14 @@ class TemporalPlanPipeline:
 
         # Step 2: Multi-pass LLM orchestration
         logger.info("Running multi-pass LLM orchestration (intent: %s)...", intent)
-        requested_style = (style_profile or "auto").strip().lower()
-        provided_style_brief = ""
-        if requested_style not in ("", "auto", "llm"):
-            _, provided_style_brief = build_style_brief(requested_style, style_notes)
-        directing_plan, pass_artifacts, selected_style, style_rationale = self._orchestrator.orchestrate(
+        requested_policy = (director_hint or "auto").strip().lower()
+        provided_policy_notes = (director_notes or "").strip()
+        directing_plan, pass_artifacts, selected_policy, policy_rationale = self._orchestrator.orchestrate(
             timeline,
             temporal_cinematic,
             intent,
-            style_profile=requested_style,
-            style_brief=provided_style_brief,
+            style_profile=requested_policy,
+            style_brief=provided_policy_notes,
         )
 
         # Step 3: Validate directing plan
@@ -120,6 +117,6 @@ class TemporalPlanPipeline:
             temporal_trajectory_plan=trajectory_plan,
             validation_report=combined_report,
             pass_artifacts=pass_artifacts,
-            cinematic_style=selected_style,
-            style_rationale=style_rationale,
+            director_policy=selected_policy,
+            director_rationale=policy_rationale,
         )

@@ -27,7 +27,7 @@ class TestTemporalPlanOrchestrator:
 
         # Should include style + 3 planning pass artifacts
         assert len(artifacts) == 4
-        assert artifacts[0].pass_type == PlanningPassType.style_intent
+        assert artifacts[0].pass_type == PlanningPassType.director_intent
         assert artifacts[1].pass_type == PlanningPassType.global_beat
         assert artifacts[2].pass_type == PlanningPassType.shot_intent
 
@@ -52,7 +52,7 @@ class TestTemporalPlanOrchestrator:
 
         for artifact in artifacts:
             assert artifact.pass_type in {
-                PlanningPassType.style_intent,
+                PlanningPassType.director_intent,
                 PlanningPassType.global_beat,
                 PlanningPassType.shot_intent,
                 PlanningPassType.constraint_critique,
@@ -82,14 +82,14 @@ class TestTemporalPlanOrchestrator:
             duration = shot.time_end - shot.time_start
             assert duration > 0, f"Shot {shot.shot_id} has non-positive duration"
 
-    def test_orchestrate_with_motorsport_style(self, walking_actor_timeline):
+    def test_orchestrate_with_dynamic_tracking_policy(self, walking_actor_timeline):
         tc = self.abstractor.abstract(walking_actor_timeline)
         plan, artifacts, _, _ = self.orchestrator.orchestrate(
             walking_actor_timeline,
             tc,
-            "Track the lead subject like a race broadcast",
-            style_profile="motorsport_f1",
+            "Track the lead subject with aggressive motion continuity",
+            style_profile="dynamic_tracking",
             style_brief="Prefer anticipatory framing before fast turns.",
         )
         assert len(plan.shots) >= 1
-        assert any("style=motorsport_f1" in a.input_summary for a in artifacts if a.input_summary)
+        assert any("style=dynamic_tracking" in a.input_summary for a in artifacts if a.input_summary)

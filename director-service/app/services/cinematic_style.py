@@ -1,32 +1,29 @@
-"""Cinematic style profiles for temporal planning prompts."""
+"""Director policy profiles for scene-agnostic temporal planning."""
 
 from typing import Tuple
 
 
 _STYLE_PROFILES: dict[str, str] = {
-    "default": (
-        "No special genre constraints. Keep motion readable, subject-focused, and spatially coherent."
+    "balanced": (
+        "Keep framing readable and context-aware with moderate movement intensity and stable transitions."
     ),
-    "motorsport_f1": (
-        "Use F1 broadcast-inspired language and pacing. Prefer fast but legible tracking; "
-        "prioritize lead subject continuity; use anticipatory framing before apex/turning moments; "
-        "alternate between medium tracking, wide contextual shots, and selective reveal beats; "
-        "avoid excessive whip transitions that break readability; preserve horizon stability when possible."
+    "dynamic_tracking": (
+        "Prioritize subject continuity under fast motion. Use anticipatory framing and decisive but readable cuts."
     ),
-    "sports_broadcast": (
-        "Use live sports broadcast style. Keep action center frame with clear context and timing continuity."
+    "narrative_reveal": (
+        "Favor story progression and reveal moments. Build visual tension before key events."
     ),
-    "cinematic_drama": (
-        "Use cinematic drama style: deliberate pacing, motivated reveals, and emotionally weighted framing."
+    "subject_focus": (
+        "Prioritize one primary subject with tighter composition and reduced context switching."
     ),
 }
 
 
 def normalize_style_profile(style_profile: str | None) -> str:
     if not style_profile:
-        return "default"
+        return "balanced"
     profile = style_profile.strip().lower()
-    return profile if profile in _STYLE_PROFILES else "default"
+    return profile if profile in _STYLE_PROFILES else "balanced"
 
 
 def build_style_brief(style_profile: str | None, style_notes: str | None = None) -> Tuple[str, str]:

@@ -21,7 +21,7 @@ class TransitionType(str, Enum):
 
 
 class PlanningPassType(str, Enum):
-    style_intent = "style_intent"
+    director_intent = "director_intent"
     global_beat = "global_beat"
     shot_intent = "shot_intent"
     constraint_critique = "constraint_critique"

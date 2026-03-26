@@ -32,7 +32,7 @@ class TestTemporalGenerateEndpoint:
             "scene_id": "temporal_walking_actor",
             "intent": "Follow the actor",
             "scene_timeline": walking_actor_data,
-            "cinematic_style": "motorsport_f1",
+            "director_hint": "dynamic_tracking",
         })
         assert response.status_code == 200
         data = response.json()
@@ -42,20 +42,20 @@ class TestTemporalGenerateEndpoint:
         assert "pass_artifacts" in data
         assert "scene_timeline" in data
         assert data["temporal"] is True
-        assert data["cinematic_style"] == "motorsport_f1"
+        assert data["director_policy"] == "dynamic_tracking"
         assert len(data["pass_artifacts"]) == 4
 
     def test_auto_style_selection_for_racing_intent(self, client, walking_actor_data):
         response = client.post("/api/temporal/generate", json={
             "scene_id": "temporal_walking_actor",
-            "intent": "Track this like an F1 race broadcast with high-speed readability",
+            "intent": "Track this chase with high-speed readability",
             "scene_timeline": walking_actor_data,
-            "cinematic_style": "auto",
+            "director_hint": "auto",
         })
         assert response.status_code == 200
         data = response.json()
-        assert data["cinematic_style"] == "motorsport_f1"
-        assert isinstance(data.get("style_rationale"), str)
+        assert data["director_policy"] in {"dynamic_tracking", "balanced"}
+        assert isinstance(data.get("director_rationale"), str)
 
     def test_generate_with_two_actors(self, client, two_actors_data):
         response = client.post("/api/temporal/generate", json={
@@ -125,11 +125,11 @@ class TestTemporalRunsEndpoint:
         assert payload["scene_timeline"]["scene_id"] == "temporal_walking_actor"
 
     def test_temporal_styles_endpoint(self, client):
-        response = client.get("/api/temporal/styles")
+        response = client.get("/api/temporal/capabilities")
         assert response.status_code == 200
         payload = response.json()
         assert "profiles" in payload
-        assert "motorsport_f1" in payload["profiles"]
+        assert "dynamic_tracking" in payload["profiles"]
 
 
 class TestExistingEndpointsUnchanged:

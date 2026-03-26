@@ -267,6 +267,9 @@ namespace AIDirector.UnityRuntime
         public SceneTimelineData scene_timeline;
         public string llm_provider;
         public string llm_model;
+        public string director_hint;
+        public string director_notes;
+        // Backward-compat for older backend builds
         public string cinematic_style;
         public string style_notes;
     }
@@ -300,6 +303,29 @@ namespace AIDirector.UnityRuntime
     }
 
     [Serializable]
+    public class CameraProgramItemData
+    {
+        public string camera_id;
+        public string role;
+        public string primary_subject;
+        public string shot_type_bias;
+        public string movement_bias;
+        public string notes;
+    }
+
+    [Serializable]
+    public class CutDecisionItemData
+    {
+        public string cut_id;
+        public float timestamp;
+        public string from_camera_id;
+        public string to_camera_id;
+        public string transition;
+        public string reason;
+        public string shot_id;
+    }
+
+    [Serializable]
     public class TemporalDirectingPlanData
     {
         public string plan_id;
@@ -307,8 +333,12 @@ namespace AIDirector.UnityRuntime
         public string intent;
         public string summary;
         public TimeSpanData time_span;
+        public string director_policy;
+        public string director_rationale;
         public List<BeatData> beats = new List<BeatData>();
         public List<TemporalShotData> shots = new List<TemporalShotData>();
+        public List<CameraProgramItemData> camera_program = new List<CameraProgramItemData>();
+        public List<CutDecisionItemData> edit_decision_list = new List<CutDecisionItemData>();
     }
 
     [Serializable]
@@ -362,11 +392,16 @@ namespace AIDirector.UnityRuntime
         public TemporalTrajectoryPlanData temporal_trajectory_plan = new TemporalTrajectoryPlanData();
         public ValidationReportData validation_report = new ValidationReportData();
         public List<PlanningPassArtifactData> pass_artifacts = new List<PlanningPassArtifactData>();
+        public SceneTimelineData scene_timeline;
         public string output_prefix;
         public string scene_id;
         public string intent;
         public string llm_provider;
         public string llm_model;
+        public string director_hint;
+        public string director_policy;
+        public string director_rationale;
+        public string director_notes;
         public string saved_at;
         public bool temporal = true;
     }

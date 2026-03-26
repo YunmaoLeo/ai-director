@@ -67,6 +67,33 @@ namespace AIDirector.UnityRuntime
             playbackCoroutine = StartCoroutine(PlaybackTemporalRoutine(trajectoryPlan));
         }
 
+        public void PlayTemporalDirectorPlan(
+            TemporalDirectingPlanData directingPlan,
+            TemporalTrajectoryPlanData trajectoryPlan,
+            Vector3 analysisNormalizationOffset)
+        {
+            if (trajectoryPlan == null || trajectoryPlan.trajectories == null || trajectoryPlan.trajectories.Count == 0)
+            {
+                Debug.LogWarning("Temporal trajectory plan is empty.");
+                return;
+            }
+
+            normalizationOffset = analysisNormalizationOffset;
+            queuedTemporalPlan = trajectoryPlan;
+
+            if (playbackCoroutine != null)
+            {
+                StopCoroutine(playbackCoroutine);
+            }
+
+            var hasCuts = directingPlan != null
+                && directingPlan.edit_decision_list != null
+                && directingPlan.edit_decision_list.Count > 0;
+            playbackCoroutine = hasCuts
+                ? StartCoroutine(PlaybackDirectorCutRoutine(directingPlan, trajectoryPlan))
+                : StartCoroutine(PlaybackTemporalRoutine(trajectoryPlan));
+        }
+
         public void StopPlayback()
         {
             if (playbackCoroutine != null)
@@ -109,6 +136,46 @@ namespace AIDirector.UnityRuntime
                 foreach (var shot in trajectoryPlan.trajectories)
                 {
                     yield return PlayTemporalShot(shot);
+                }
+            }
+            while (loopPlayback);
+
+            playbackCoroutine = null;
+        }
+
+        private IEnumerator PlaybackDirectorCutRoutine(
+            TemporalDirectingPlanData directingPlan,
+            TemporalTrajectoryPlanData trajectoryPlan)
+        {
+            if (targetCamera == null)
+            {
+                Debug.LogError("Target camera is not assigned.");
+                yield break;
+            }
+
+            do
+            {
+                var cuts = new System.Collections.Generic.List<CutDecisionItemData>(directingPlan.edit_decision_list);
+                cuts.Sort((a, b) => a.timestamp.CompareTo(b.timestamp));
+
+                for (var i = 0; i < cuts.Count; i++)
+                {
+                    var cut = cuts[i];
+                    var nextTimestamp = i < cuts.Count - 1 ? cuts[i + 1].timestamp : float.MaxValue;
+                    var shotTrajectory = FindShotTrajectoryById(trajectoryPlan, cut.shot_id);
+                    if (shotTrajectory == null)
+                    {
+                        continue;
+                    }
+
+                    var segmentStart = Mathf.Max(cut.timestamp, shotTrajectory.time_start);
+                    var segmentEnd = Mathf.Min(nextTimestamp, shotTrajectory.time_end);
+                    if (segmentEnd <= segmentStart)
+                    {
+                        continue;
+                    }
+
+                    yield return PlayTemporalShotWindow(shotTrajectory, segmentStart, segmentEnd);
                 }
             }
             while (loopPlayback);
@@ -218,6 +285,118 @@ namespace AIDirector.UnityRuntime
             {
                 targetCamera.transform.rotation = Quaternion.LookRotation(finalDirection, Vector3.up);
             }
+        }
+
+        private IEnumerator PlayTemporalShotWindow(TemporalShotTrajectoryData shot, float startTime, float endTime)
+        {
+            if (shot.timed_points == null || shot.timed_points.Count == 0)
+            {
+                yield break;
+            }
+
+            var currentTime = startTime;
+            while (currentTime < endTime)
+            {
+                var point = SampleTimedPointAtTime(shot, currentTime);
+                var nextTime = Mathf.Min(endTime, currentTime + Time.deltaTime);
+                var nextPoint = SampleTimedPointAtTime(shot, nextTime);
+
+                var worldPos = ToWorldPoint(point.position);
+                var worldLook = ToWorldPoint(point.look_at);
+                targetCamera.transform.position = worldPos;
+                var lookDir = (worldLook - worldPos).normalized;
+                if (lookDir.sqrMagnitude > 0.0001f)
+                {
+                    var desiredRotation = Quaternion.LookRotation(lookDir, Vector3.up);
+                    targetCamera.transform.rotation = Quaternion.Slerp(
+                        targetCamera.transform.rotation,
+                        desiredRotation,
+                        Time.deltaTime * defaultLookSmoothing);
+                }
+
+                var fov = Mathf.Lerp(point.fov, nextPoint.fov, 0.5f);
+                if (fov > 1f)
+                {
+                    targetCamera.fieldOfView = fov;
+                }
+
+                currentTime = nextTime;
+                yield return null;
+            }
+        }
+
+        private static TemporalShotTrajectoryData FindShotTrajectoryById(TemporalTrajectoryPlanData plan, string shotId)
+        {
+            if (plan == null || plan.trajectories == null)
+            {
+                return null;
+            }
+
+            foreach (var shot in plan.trajectories)
+            {
+                if (shot.shot_id == shotId)
+                {
+                    return shot;
+                }
+            }
+
+            return null;
+        }
+
+        private static TimedTrajectoryPointData SampleTimedPointAtTime(TemporalShotTrajectoryData shot, float timestamp)
+        {
+            var points = shot.timed_points;
+            if (points == null || points.Count == 0)
+            {
+                return new TimedTrajectoryPointData
+                {
+                    timestamp = timestamp,
+                    position = new[] { 0f, 0f, 0f },
+                    look_at = new[] { 0f, 0f, 0f },
+                    fov = 60f
+                };
+            }
+
+            if (points.Count == 1 || timestamp <= points[0].timestamp)
+            {
+                return points[0];
+            }
+
+            var last = points[points.Count - 1];
+            if (timestamp >= last.timestamp)
+            {
+                return last;
+            }
+
+            for (var i = 0; i < points.Count - 1; i++)
+            {
+                var a = points[i];
+                var b = points[i + 1];
+                if (timestamp < a.timestamp || timestamp > b.timestamp)
+                {
+                    continue;
+                }
+
+                var span = Mathf.Max(0.0001f, b.timestamp - a.timestamp);
+                var t = Mathf.Clamp01((timestamp - a.timestamp) / span);
+                return new TimedTrajectoryPointData
+                {
+                    timestamp = timestamp,
+                    position = LerpArray3(a.position, b.position, t),
+                    look_at = LerpArray3(a.look_at, b.look_at, t),
+                    fov = Mathf.Lerp(a.fov, b.fov, t)
+                };
+            }
+
+            return last;
+        }
+
+        private static float[] LerpArray3(float[] a, float[] b, float t)
+        {
+            var va = a != null && a.Length >= 3 ? new Vector3(a[0], a[1], a[2]) : Vector3.zero;
+            var vb = b != null && b.Length >= 3 ? new Vector3(b[0], b[1], b[2]) : Vector3.zero;
+            var v = Vector3.Lerp(va, vb, t);
+            return new[] { v.x, v.y, v.z };
         }
 
         private Vector3 ToWorldPoint(float[] point)

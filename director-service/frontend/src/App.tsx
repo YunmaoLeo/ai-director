@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SceneListItem, SceneSummary, GenerateResponse, TemporalGenerateResponse } from './types';
-import { fetchScenes, fetchScene, generatePlan } from './lib/api';
+import type { SceneListItem, SceneSummary, GenerateResponse, TemporalGenerateResponse, SceneTimeline } from './types';
+import { fetchScenes, fetchScene, generatePlan, generateTemporalPlan } from './lib/api';
 import ScenePanel from './panels/ScenePanel';
 import AbstractionPanel from './panels/AbstractionPanel';
 import IntentPanel from './panels/IntentPanel';
@@ -15,8 +15,9 @@ export default function App() {
   const [scenes, setScenes] = useState<SceneListItem[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string>('');
   const [scene, setScene] = useState<SceneSummary | null>(null);
+  const [sceneTimeline, setSceneTimeline] = useState<SceneTimeline | null>(null);
   const [result, setResult] = useState<GenerateResponse | null>(null);
-  const [temporalResult] = useState<TemporalGenerateResponse | null>(null);
+  const [temporalResult, setTemporalResult] = useState<TemporalGenerateResponse | null>(null);
   const [resultHistory, setResultHistory] = useState<GenerateResponse[]>([]);
   const [intentHistory, setIntentHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,12 +49,20 @@ export default function App() {
   const handleSceneSelect = useCallback(async (sceneId: string) => {
     setSelectedSceneId(sceneId);
     setResult(null);
+    setTemporalResult(null);
     setResultHistory([]);
     setSelectedShotId(null);
     setError(null);
     try {
-      const data = await fetchScene(sceneId);
-      setScene(data);
+      const data = await fetchScene(sceneId) as unknown as Record<string, unknown>;
+      if (isSceneTimelinePayload(data)) {
+        const timeline = data as unknown as SceneTimeline;
+        setSceneTimeline(timeline);
+        setScene(sceneFromTimeline(timeline));
+      } else {
+        setSceneTimeline(null);
+        setScene(data as unknown as SceneSummary);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -65,9 +74,26 @@ export default function App() {
     setError(null);
     setSelectedShotId(null);
     try {
-      const data = await generatePlan(selectedSceneId, intent, llmModel);
-      setResult(data);
-      setResultHistory(prev => [...prev, data]);
+      if (mode === 'temporal') {
+        if (!sceneTimeline) {
+          throw new Error('Selected scene is not a temporal timeline scene.');
+        }
+        const data = await generateTemporalPlan(
+          selectedSceneId,
+          intent,
+          sceneTimeline,
+          llmModel,
+          'auto',
+          undefined,
+        );
+        setTemporalResult(data);
+        setResult(null);
+      } else {
+        const data = await generatePlan(selectedSceneId, intent, llmModel);
+        setResult(data);
+        setResultHistory(prev => [...prev, data]);
+        setTemporalResult(null);
+      }
       setIntentHistory(prev =>
         prev.includes(intent) ? prev : [...prev, intent]
       );
@@ -76,7 +102,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [selectedSceneId]);
+  }, [selectedSceneId, mode, sceneTimeline]);
 
   const handleLoadSavedRun = useCallback(async (savedRun: GenerateResponse) => {
     setResult(savedRun);
@@ -220,6 +246,7 @@ export default function App() {
               scene={scene}
               trajectory={result?.trajectory_plan ?? null}
               selectedShotId={selectedShotId}
+              onSelectShot={setSelectedShotId}
               mode={mode}
               temporalResult={temporalResult}
             />
@@ -253,7 +280,14 @@ export default function App() {
               </div>
               <div className="stack-splitter stack-splitter-thin" />
               <div className="sub-pane" style={{ height: '46%' }}>
-                <OutputPanel result={result} history={resultHistory} onLoadSavedRun={handleLoadSavedRun} mode={mode} temporalResult={temporalResult} />
+                <OutputPanel
+                  result={result}
+                  history={resultHistory}
+                  onLoadSavedRun={handleLoadSavedRun}
+                  onLoadTemporalRun={setTemporalResult}
+                  mode={mode}
+                  temporalResult={temporalResult}
+                />
               </div>
             </div>
           </div>
@@ -261,4 +295,20 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+function isSceneTimelinePayload(value: Record<string, unknown>): boolean {
+  return Boolean(value && typeof value === 'object' && value.time_span && value.object_tracks);
+}
+
+function sceneFromTimeline(timeline: SceneTimeline): SceneSummary {
+  return {
+    scene_id: timeline.scene_id,
+    scene_name: timeline.scene_name,
+    scene_type: timeline.scene_type,
+    description: timeline.description,
+    bounds: timeline.bounds,
+    objects: timeline.objects_static,
+    relations: timeline.relations,
+  };
 }

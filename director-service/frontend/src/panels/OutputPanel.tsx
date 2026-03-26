@@ -3,20 +3,21 @@ import type { GenerateResponse, RunSummary, TemporalGenerateResponse } from '../
 import JsonViewer from '../components/JsonViewer';
 import ValidationBadge from '../components/ValidationBadge';
 import PassArtifactViewer from '../components/PassArtifactViewer';
-import { fetchRun, fetchRuns } from '../lib/api';
+import { fetchRun, fetchRuns, fetchTemporalRun, fetchTemporalRuns } from '../lib/api';
 import type { AppMode } from '../App';
 
 interface Props {
   result: GenerateResponse | null;
   history: GenerateResponse[];
   onLoadSavedRun: (run: GenerateResponse) => void;
+  onLoadTemporalRun?: (run: TemporalGenerateResponse) => void;
   mode?: AppMode;
   temporalResult?: TemporalGenerateResponse | null;
 }
 
 type Tab = 'directing_plan' | 'trajectory_plan' | 'validation' | 'pass_artifacts';
 
-export default function OutputPanel({ result, history, onLoadSavedRun, mode = 'static', temporalResult }: Props) {
+export default function OutputPanel({ result, history, onLoadSavedRun, onLoadTemporalRun, mode = 'static', temporalResult }: Props) {
   const [tab, setTab] = useState<Tab>('directing_plan');
   const [historyIdx, setHistoryIdx] = useState<number | null>(null);
   const [savedRuns, setSavedRuns] = useState<RunSummary[]>([]);
@@ -24,21 +25,24 @@ export default function OutputPanel({ result, history, onLoadSavedRun, mode = 's
   const [runsError, setRunsError] = useState<string | null>(null);
 
   const displayResult = historyIdx !== null ? history[historyIdx] : result;
+  const activeValidation = mode === 'temporal' ? temporalResult?.validation_report : displayResult?.validation_report;
 
   useEffect(() => {
-    fetchRuns()
+    const loader = mode === 'temporal' ? fetchTemporalRuns : fetchRuns;
+    loader()
       .then(setSavedRuns)
       .catch(err => setRunsError(err instanceof Error ? err.message : String(err)));
-  }, [result?.output_prefix]);
+  }, [mode, result?.output_prefix, temporalResult?.output_prefix]);
 
   return (
     <div className="panel">
       <h3>
         Output
-        {displayResult && <ValidationBadge report={displayResult.validation_report} />}
+        {activeValidation && <ValidationBadge report={activeValidation} />}
       </h3>
-      {!displayResult && <p className="muted">No output loaded. Select a saved run below or generate a new one.</p>}
-      {displayResult && (displayResult.debug_scene_id || displayResult.output_prefix) && (
+      {mode === 'temporal' && !temporalResult && <p className="muted">No temporal output loaded. Select a saved run below or generate a new one.</p>}
+      {mode === 'static' && !displayResult && <p className="muted">No output loaded. Select a saved run below or generate a new one.</p>}
+      {mode === 'static' && displayResult && (displayResult.debug_scene_id || displayResult.output_prefix) && (
         <div className="meta" style={{ marginBottom: 12 }}>
           {displayResult.debug_scene_id && <span>Debug Scene: <code>{displayResult.debug_scene_id}</code></span>}
           {displayResult.debug_scene_file && <span>Scene File: <code>{displayResult.debug_scene_file}</code></span>}
@@ -49,8 +53,16 @@ export default function OutputPanel({ result, history, onLoadSavedRun, mode = 's
           {displayResult.source_api && <span>API: <code>{displayResult.source_api}</code></span>}
         </div>
       )}
+      {mode === 'temporal' && temporalResult?.output_prefix && (
+        <div className="meta" style={{ marginBottom: 12 }}>
+          {temporalResult.output_prefix && <span>Output Prefix: <code>{temporalResult.output_prefix}</code></span>}
+          {temporalResult.llm_provider && <span>Provider: <code>{temporalResult.llm_provider}</code></span>}
+          {temporalResult.llm_model && <span>Model: <code>{temporalResult.llm_model}</code></span>}
+          {temporalResult.director_policy && <span>Director Policy: <code>{temporalResult.director_policy}</code></span>}
+        </div>
+      )}
 
-      {displayResult && (
+      {((mode === 'static' && displayResult) || (mode === 'temporal' && temporalResult)) && (
         <>
           <div className="tab-bar">
             <button className={tab === 'directing_plan' ? 'active' : ''} onClick={() => setTab('directing_plan')}>
@@ -72,19 +84,19 @@ export default function OutputPanel({ result, history, onLoadSavedRun, mode = 's
           {tab === 'directing_plan' && (
             mode === 'temporal' && temporalResult
               ? <JsonViewer data={temporalResult.temporal_directing_plan} />
-              : <JsonViewer data={displayResult.directing_plan} />
+              : <JsonViewer data={displayResult!.directing_plan} />
           )}
           {tab === 'trajectory_plan' && (
             mode === 'temporal' && temporalResult
               ? <JsonViewer data={temporalResult.temporal_trajectory_plan} />
-              : <JsonViewer data={displayResult.trajectory_plan} />
+              : <JsonViewer data={displayResult!.trajectory_plan} />
           )}
           {tab === 'validation' && (
             <div>
               {(() => {
                 const report = mode === 'temporal' && temporalResult
                   ? temporalResult.validation_report
-                  : displayResult.validation_report;
+                  : displayResult!.validation_report;
                 return (
                   <>
                     {report.errors.length > 0 && (
@@ -123,7 +135,7 @@ export default function OutputPanel({ result, history, onLoadSavedRun, mode = 's
         </>
       )}
 
-      {displayResult && history.length > 1 && (
+      {mode === 'static' && displayResult && history.length > 1 && (
         <div style={{ marginTop: 12 }}>
           <h4>Compare Previous ({history.length} results)</h4>
           <div className="tag-list">
@@ -159,8 +171,13 @@ export default function OutputPanel({ result, history, onLoadSavedRun, mode = 's
               onClick={async () => {
                 try {
                   setLoadingRunPrefix(run.prefix);
-                  const bundle = await fetchRun(run.prefix);
-                  onLoadSavedRun(bundle);
+                  if (mode === 'temporal') {
+                    const bundle = await fetchTemporalRun(run.prefix);
+                    onLoadTemporalRun?.(bundle);
+                  } else {
+                    const bundle = await fetchRun(run.prefix);
+                    onLoadSavedRun(bundle);
+                  }
                   setHistoryIdx(null);
                   setRunsError(null);
                 } catch (err: unknown) {

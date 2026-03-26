@@ -56,8 +56,8 @@ export async function generateTemporalPlan(
   intent: string,
   sceneTimeline: SceneTimeline,
   llmModel?: string,
-  cinematicStyle?: string,
-  styleNotes?: string,
+  directorHint?: string,
+  directorNotes?: string,
 ): Promise<TemporalGenerateResponse> {
   const res = await fetch(`${BASE}/temporal/generate`, {
     method: 'POST',
@@ -67,8 +67,8 @@ export async function generateTemporalPlan(
       intent,
       scene_timeline: sceneTimeline,
       llm_model: llmModel,
-      cinematic_style: cinematicStyle,
-      style_notes: styleNotes,
+      director_hint: directorHint,
+      director_notes: directorNotes,
     }),
   });
   if (!res.ok) throw new Error(`Failed to generate temporal plan: ${res.statusText}`);

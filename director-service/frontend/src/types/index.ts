@@ -223,8 +223,12 @@ export interface TemporalDirectingPlan {
   intent: string;
   summary: string;
   time_span: TimeSpan | null;
+  director_policy?: string;
+  director_rationale?: string;
   beats: Beat[];
   shots: TemporalShot[];
+  camera_program?: Array<Record<string, unknown>>;
+  edit_decision_list?: Array<Record<string, unknown>>;
 }
 
 export interface TimedTrajectoryPoint {
@@ -274,6 +278,10 @@ export interface TemporalGenerateResponse {
   intent?: string | null;
   llm_provider?: string | null;
   llm_model?: string | null;
+  director_hint?: string | null;
+  director_policy?: string | null;
+  director_rationale?: string | null;
+  director_notes?: string | null;
   cinematic_style_requested?: string | null;
   cinematic_style?: string | null;
   style_rationale?: string | null;

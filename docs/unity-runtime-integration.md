@@ -111,9 +111,8 @@ If `autoPlayTrajectory` is enabled, the returned camera path starts automaticall
    - `Run Director Pipeline`
 
 The controller captures a `scene_timeline` over time, sends it to backend temporal API, and can auto-play `temporal_trajectory_plan`.
-By default, style selection is `auto` (LLM decides from replay + intent).  
-If you need forced style for debugging, set `cinematicStyle` and `styleNotes` on `DirectorRuntimeController`.
-For racing shots, a typical override is `cinematicStyle = motorsport_f1`.
+By default, director policy selection is `auto` (LLM decides from replay + intent).  
+If you need forced behavior for debugging, set `cinematicStyle` (mapped to backend `director_hint`) and `styleNotes` (mapped to `director_notes`) on `DirectorRuntimeController`.
 
 ## OpenAI vision setup
 
@@ -228,8 +227,8 @@ Payload shape:
 {
   "scene_id": "unity_scene",
   "intent": "Follow the actor, then reveal the window.",
-  "cinematic_style": "motorsport_f1",
-  "style_notes": "Favor broadcast-like tracking around fast turns.",
+  "director_hint": "dynamic_tracking",
+  "director_notes": "Prioritize subject continuity under fast motion.",
   "scene_timeline": {
     "scene_id": "unity_scene",
     "scene_name": "Unity Scene",

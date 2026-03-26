@@ -12,14 +12,14 @@ import time
 import uuid
 from typing import Any
 
-from pydantic import ValidationError
-
 from app.models.scene_timeline import SceneTimeline
 from app.models.temporal_cinematic_scene import TemporalCinematicScene
 from app.models.temporal_directing_plan import (
     Beat,
     TemporalShot,
     TemporalDirectingPlan,
+    CameraProgramItem,
+    CutDecisionItem,
 )
 from app.models.temporal_enums import PlanningPassType
 from app.models.planning_pass import PlanningPassArtifact
@@ -88,8 +88,12 @@ class TemporalPlanOrchestrator:
             intent=intent,
             summary=f"Temporal directing plan for: {intent}",
             time_span=timeline.time_span,
+            director_policy=active_style,
+            director_rationale=style_rationale,
             beats=beats,
             shots=revised_shots,
+            camera_program=self._build_camera_program(revised_shots),
+            edit_decision_list=self._build_edit_decision_list(revised_shots),
         )
 
         return plan, artifacts, active_style, style_rationale
@@ -106,7 +110,7 @@ class TemporalPlanOrchestrator:
         if requested and requested not in ("auto", "llm", "default"):
             profile, brief = build_style_brief(requested, style_brief)
             artifact = PlanningPassArtifact(
-                pass_type=PlanningPassType.style_intent,
+                pass_type=PlanningPassType.director_intent,
                 pass_index=0,
                 input_summary=f"requested_style={requested}",
                 output_raw="",
@@ -133,7 +137,7 @@ class TemporalPlanOrchestrator:
             llm_notes = str(data.get("style_notes", "")).strip()
             profile, brief = build_style_brief(profile, llm_notes)
             artifact = PlanningPassArtifact(
-                pass_type=PlanningPassType.style_intent,
+                pass_type=PlanningPassType.director_intent,
                 pass_index=0,
                 input_summary=f"auto_style scene={timeline.scene_id}",
                 output_raw=raw,
@@ -147,7 +151,7 @@ class TemporalPlanOrchestrator:
             logger.warning("Style pass failed: %s. Falling back to default style.", e)
             profile, brief = build_style_brief("default", style_brief)
             artifact = PlanningPassArtifact(
-                pass_type=PlanningPassType.style_intent,
+                pass_type=PlanningPassType.director_intent,
                 pass_index=0,
                 input_summary=f"auto_style scene={timeline.scene_id}",
                 output_raw=str(e),
@@ -392,6 +396,40 @@ class TemporalPlanOrchestrator:
                 success=False,
                 error_message=str(e),
             )
+
+    def _build_camera_program(self, shots: list[TemporalShot]) -> list[CameraProgramItem]:
+        cameras: list[CameraProgramItem] = []
+        for index, shot in enumerate(shots):
+            cameras.append(
+                CameraProgramItem(
+                    camera_id=f"cam_{index + 1}",
+                    role="virtual_camera",
+                    primary_subject=shot.subject,
+                    shot_type_bias=shot.shot_type,
+                    movement_bias=shot.movement,
+                    notes=shot.goal,
+                )
+            )
+        return cameras
+
+    def _build_edit_decision_list(self, shots: list[TemporalShot]) -> list[CutDecisionItem]:
+        edits: list[CutDecisionItem] = []
+        previous_camera = ""
+        for index, shot in enumerate(shots):
+            current_camera = f"cam_{index + 1}"
+            edits.append(
+                CutDecisionItem(
+                    cut_id=f"cut_{index + 1}",
+                    timestamp=shot.time_start,
+                    from_camera_id=previous_camera,
+                    to_camera_id=current_camera,
+                    transition=shot.transition_in,
+                    reason=shot.goal or f"Switch to {shot.subject}",
+                    shot_id=shot.shot_id,
+                )
+            )
+            previous_camera = current_camera
+        return edits
 
 
 def _parse_json(raw: str) -> dict:

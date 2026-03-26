@@ -10,11 +10,12 @@ interface Props {
   scene: SceneSummary | null;
   trajectory: TrajectoryPlan | null;
   selectedShotId: string | null;
+  onSelectShot?: (shotId: string | null) => void;
   mode?: AppMode;
   temporalResult?: TemporalGenerateResponse | null;
 }
 
-export default function TrajectoryPanel({ scene, trajectory, selectedShotId, mode = 'static', temporalResult }: Props) {
+export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onSelectShot, mode = 'static', temporalResult }: Props) {
   const playbackDuration = selectedShotId
     ? trajectory?.trajectories.find(t => t.shot_id === selectedShotId)?.duration ?? 0
     : trajectory?.total_duration ?? 0;
@@ -62,10 +63,23 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, mod
   if (mode === 'temporal') {
     const tempTraj = temporalResult?.temporal_trajectory_plan;
     const tempPlan = temporalResult?.temporal_directing_plan;
+    const tempTimeline = temporalResult?.scene_timeline;
     const timeSpan = tempPlan?.time_span;
-    const objectTracks: ObjectTrack[] = [];
+    const objectTracks: ObjectTrack[] = tempTimeline?.object_tracks ?? [];
+    const events = tempTimeline?.events ?? [];
+    const temporalScene: SceneSummary = tempTimeline
+      ? {
+          scene_id: tempTimeline.scene_id,
+          scene_name: tempTimeline.scene_name,
+          scene_type: tempTimeline.scene_type,
+          description: tempTimeline.description,
+          bounds: tempTimeline.bounds,
+          objects: tempTimeline.objects_static,
+          relations: tempTimeline.relations,
+        }
+      : scene as SceneSummary;
 
-    if (!scene || !tempTraj || !tempPlan || !timeSpan) {
+    if (!temporalScene || !tempTraj || !tempPlan || !timeSpan) {
       return <div className="panel"><h3>Temporal Preview</h3><p className="muted">No temporal data</p></div>;
     }
 
@@ -131,11 +145,11 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, mod
           timeSpan={timeSpan}
           beats={tempPlan.beats}
           shots={tempPlan.shots}
-          events={[]}
+          events={events}
           playheadSeconds={tempPlayhead}
           onSeek={t => { setTempPlaying(false); setTempPlayhead(t); }}
           selectedShotId={selectedShotId}
-          onSelectShot={() => {}}
+          onSelectShot={shotId => onSelectShot?.(shotId)}
           playbackSpeed={tempSpeed}
           onSpeedChange={setTempSpeed}
         />
@@ -154,7 +168,7 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, mod
             </div>
           </div>
           <AnimatedThreePreview
-            scene={scene}
+            scene={temporalScene}
             trajectories={tempTraj.trajectories}
             objectTracks={objectTracks}
             playheadSeconds={tempPlayhead}

@@ -72,7 +72,10 @@ namespace AIDirector.UnityRuntime
                 return;
             }
 
-            cameraPlayback.PlayTemporalTrajectoryPlan(lastTemporalResponse.temporal_trajectory_plan, sceneAnalyzer != null ? sceneAnalyzer.LastNormalizationOffset : Vector3.zero);
+            cameraPlayback.PlayTemporalDirectorPlan(
+                lastTemporalResponse.temporal_directing_plan,
+                lastTemporalResponse.temporal_trajectory_plan,
+                sceneAnalyzer != null ? sceneAnalyzer.LastNormalizationOffset : Vector3.zero);
         }
 
         private IEnumerator RunDirectorPipelineRoutine()
@@ -232,6 +235,8 @@ namespace AIDirector.UnityRuntime
                 scene_id = timeline.scene_id,
                 intent = intent,
                 scene_timeline = timeline,
+                director_hint = string.IsNullOrWhiteSpace(cinematicStyle) ? "auto" : cinematicStyle.Trim(),
+                director_notes = string.IsNullOrWhiteSpace(styleNotes) ? null : styleNotes.Trim(),
                 cinematic_style = string.IsNullOrWhiteSpace(cinematicStyle) ? "auto" : cinematicStyle.Trim(),
                 style_notes = string.IsNullOrWhiteSpace(styleNotes) ? null : styleNotes.Trim()
             };
@@ -268,7 +273,10 @@ namespace AIDirector.UnityRuntime
                 && lastTemporalResponse != null
                 && lastTemporalResponse.temporal_trajectory_plan != null)
             {
-                cameraPlayback.PlayTemporalTrajectoryPlan(lastTemporalResponse.temporal_trajectory_plan, sceneAnalyzer.LastNormalizationOffset);
+                cameraPlayback.PlayTemporalDirectorPlan(
+                    lastTemporalResponse.temporal_directing_plan,
+                    lastTemporalResponse.temporal_trajectory_plan,
+                    sceneAnalyzer.LastNormalizationOffset);
             }
         }
 

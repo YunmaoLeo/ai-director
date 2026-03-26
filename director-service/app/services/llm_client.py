@@ -357,22 +357,22 @@ class MockTemporalLLMClient(LLMClient):
 
     def _style_response(self, prompt: str) -> str:
         prompt_lower = prompt.lower()
-        if any(token in prompt_lower for token in ["f1", "race", "racing", "motorsport", "lap", "overtake"]):
-            style_profile = "motorsport_f1"
-            style_rationale = "Intent and replay imply fast race-like tracking with broadcast pacing."
-            style_notes = "Prioritize readable speed, anticipatory framing, and continuity on the lead subject."
-        elif any(token in prompt_lower for token in ["match", "sport", "stadium", "broadcast"]):
-            style_profile = "sports_broadcast"
-            style_rationale = "Action-oriented coverage benefits from sports broadcast style."
-            style_notes = "Keep action centered and maintain contextual continuity."
-        elif any(token in prompt_lower for token in ["emotion", "dramatic", "story", "cinematic"]):
-            style_profile = "cinematic_drama"
-            style_rationale = "Narrative-oriented language suggests dramatic cinematic style."
-            style_notes = "Use deliberate reveal and transition pacing."
+        if any(token in prompt_lower for token in ["fast", "high-speed", "track", "chase", "pursue", "overtake", "race"]):
+            style_profile = "dynamic_tracking"
+            style_rationale = "The intent emphasizes fast motion and continuity under movement."
+            style_notes = "Prioritize anticipatory framing, continuity on primary subject, and readable cuts."
+        elif any(token in prompt_lower for token in ["reveal", "discover", "story", "arc", "build-up"]):
+            style_profile = "narrative_reveal"
+            style_rationale = "The intent emphasizes event progression and reveal timing."
+            style_notes = "Use controlled pacing and event-aligned transitions."
+        elif any(token in prompt_lower for token in ["focus", "close", "detail", "single subject"]):
+            style_profile = "subject_focus"
+            style_rationale = "The intent emphasizes a dominant subject and tighter composition."
+            style_notes = "Reduce context switching and maintain close subject readability."
         else:
-            style_profile = "default"
-            style_rationale = "No dominant genre signal; default style is safest."
-            style_notes = "Keep motion coherent and subject readability high."
+            style_profile = "balanced"
+            style_rationale = "No dominant policy signal; balanced policy is safest."
+            style_notes = "Keep motion coherent with moderate contextual coverage."
         return json.dumps(
             {
                 "style_profile": style_profile,
@@ -414,21 +414,21 @@ class MockTemporalLLMClient(LLMClient):
         subjects = self._extract_subject_ids(prompt)
         primary = subjects[0] if subjects else "room"
         third = duration / 3
-        is_f1_style = "style_profile=motorsport_f1" in prompt.lower() or "motorsport_f1" in prompt.lower()
+        is_dynamic_tracking = "style_profile=dynamic_tracking" in prompt.lower() or "dynamic_tracking" in prompt.lower()
 
-        if is_f1_style:
+        if is_dynamic_tracking:
             shots = [
                 {
                     "shot_id": "shot_1",
                     "time_start": time_start,
                     "time_end": time_start + third,
-                    "goal": "Race-context opener with speed readability",
+                    "goal": "Dynamic opener with speed readability",
                     "subject": "room",
                     "shot_type": "wide",
                     "movement": "arc",
                     "pacing": "dramatic",
                     "constraints": {"maintain_room_readability": True},
-                    "rationale": "Broadcast-like opener for track context",
+                    "rationale": "Open with contextual speed readability",
                     "transition_in": "cut",
                     "beat_id": "beat_1",
                 },
@@ -442,7 +442,7 @@ class MockTemporalLLMClient(LLMClient):
                     "movement": "lateral_slide",
                     "pacing": "dramatic",
                     "constraints": {"avoid_occlusion": True},
-                    "rationale": "Lateral race-follow behavior",
+                    "rationale": "Lateral tracking for moving subject continuity",
                     "transition_in": "smooth",
                     "beat_id": "beat_1",
                 },
@@ -456,7 +456,7 @@ class MockTemporalLLMClient(LLMClient):
                     "movement": "pan",
                     "pacing": "dramatic",
                     "constraints": {"end_on_subject": True, "avoid_occlusion": True},
-                    "rationale": "Broadcast-style finish preserving continuity",
+                    "rationale": "Finish with continuity-preserving directional motion",
                     "transition_in": "match_cut",
                     "beat_id": "beat_2",
                 },

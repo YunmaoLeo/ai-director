@@ -273,6 +273,9 @@ class TemporalGenerateRequest(BaseModel):
     scene_timeline: dict[str, Any]
     llm_provider: str | None = None
     llm_model: str | None = None
+    director_hint: str | None = "auto"
+    director_notes: str | None = None
+    # Backward-compat fields (deprecated)
     cinematic_style: str | None = "auto"
     style_notes: str | None = None
 
@@ -288,6 +291,11 @@ class TemporalGenerateResponse(BaseModel):
     intent: str | None = None
     llm_provider: str | None = None
     llm_model: str | None = None
+    director_hint: str | None = None
+    director_policy: str | None = None
+    director_rationale: str | None = None
+    director_notes: str | None = None
+    # Backward-compat response fields (deprecated)
     cinematic_style: str | None = None
     style_rationale: str | None = None
     style_notes: str | None = None
@@ -316,15 +324,16 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
 
     prefix = _file_manager.build_run_prefix(req.scene_id, "temporal")
 
-    requested_style = (req.cinematic_style or "auto").strip().lower()
+    requested_hint = (req.director_hint or req.cinematic_style or "auto").strip().lower()
+    requested_notes = req.director_notes if req.director_notes is not None else req.style_notes
     try:
         result = pipeline.run(
             timeline,
             req.intent,
             save=True,
             prefix=prefix,
-            style_profile=requested_style,
-            style_notes=req.style_notes,
+            director_hint=requested_hint,
+            director_notes=requested_notes,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -334,10 +343,15 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
         "intent": req.intent,
         "llm_provider": llm_provider,
         "llm_model": llm_model,
-        "cinematic_style_requested": requested_style,
-        "cinematic_style": result.cinematic_style,
-        "style_rationale": result.style_rationale,
-        "style_notes": req.style_notes,
+        "director_hint": requested_hint,
+        "director_policy": result.director_policy,
+        "director_rationale": result.director_rationale,
+        "director_notes": requested_notes,
+        # deprecated aliases
+        "cinematic_style_requested": requested_hint,
+        "cinematic_style": result.director_policy,
+        "style_rationale": result.director_rationale,
+        "style_notes": requested_notes,
     }
     metadata_path = _file_manager.save_temporal_run_metadata(prefix, metadata)
     saved_at = load_json(metadata_path).get("created_at")
@@ -353,9 +367,13 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
         intent=req.intent,
         llm_provider=llm_provider,
         llm_model=llm_model,
-        cinematic_style=result.cinematic_style,
-        style_rationale=result.style_rationale,
-        style_notes=req.style_notes,
+        director_hint=requested_hint,
+        director_policy=result.director_policy,
+        director_rationale=result.director_rationale,
+        director_notes=requested_notes,
+        cinematic_style=result.director_policy,
+        style_rationale=result.director_rationale,
+        style_notes=requested_notes,
         saved_at=saved_at,
     )
 
@@ -384,12 +402,18 @@ def get_temporal_run(prefix: str):
     return bundle
 
 
-@api_app.get("/api/temporal/styles")
-def list_temporal_styles():
-    """List supported cinematic style profiles for temporal planning."""
+@api_app.get("/api/temporal/capabilities")
+def list_temporal_capabilities():
+    """List generic director-policy capabilities for temporal planning."""
     return {
         "default": "auto",
-        "selection_modes": ["auto", "manual_override"],
+        "selection_modes": ["auto", "manual_hint"],
         "profiles": list_style_profiles(),
-        "recommended_for_racing": "motorsport_f1",
+        "output_contract": ["director_policy", "camera_program", "edit_decision_list"],
     }
+
+
+@api_app.get("/api/temporal/styles")
+def list_temporal_styles():
+    """Backward-compatible alias for temporal capabilities."""
+    return list_temporal_capabilities()

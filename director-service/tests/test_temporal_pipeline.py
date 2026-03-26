@@ -77,7 +77,7 @@ class TestTemporalPlanPipeline:
 
         # Should have style, beat, shot, and critique passes
         pass_types = [a.pass_type.value for a in result.pass_artifacts]
-        assert "style_intent" in pass_types
+        assert "director_intent" in pass_types
         assert "global_beat" in pass_types
         assert "shot_intent" in pass_types
         assert "constraint_critique" in pass_types
@@ -85,10 +85,10 @@ class TestTemporalPlanPipeline:
     def test_pipeline_with_style_profile(self, walking_actor_timeline):
         result = self.pipeline.run(
             walking_actor_timeline,
-            "Race-style tracking of the lead subject",
+            "High-motion tracking of the lead subject",
             save=False,
-            style_profile="motorsport_f1",
-            style_notes="Keep context visible around action turns.",
+            director_hint="dynamic_tracking",
+            director_notes="Keep context visible around action turns.",
         )
         assert result.temporal_directing_plan is not None
         assert len(result.temporal_directing_plan.shots) >= 1
