@@ -1,122 +1,48 @@
-# Dynamic Scene Planning Roadmap (Updated)
+# Dynamic Scene Planning Roadmap
 
-## 1) Current Status (Implemented)
+## 1. Current Baseline
 
-The project now supports temporal planning with a dual-layer event model:
+Implemented pipeline behavior:
 
-- Unity/runtime side captures `scene_timeline` with:
-  - `object_tracks`
-  - `events` (legacy compatibility)
-  - `raw_events` (deterministic geometric events)
-  - `semantic_events` (optional; can be empty from Unity)
-- Backend temporal pipeline:
-  - auto-syncs legacy `events` with `raw_events`
-  - runs LLM semantic-event interpretation when `semantic_events` is missing
-  - keeps fallback behavior so planning does not fail if semantic interpretation fails
-- Frontend debug UI:
-  - Scene panel shows semantic events first (falls back to raw)
-  - Temporal trajectory timeline can render semantic events as markers
-
-This means Unity remains scenario-agnostic, while semantic readability is delegated to backend LLM interpretation.
+1. Accept temporal scene timeline input.
+2. Maintain dual event layers:
+   - deterministic `raw_events`,
+   - semantic `semantic_events` (LLM-interpreted, fallback-supported).
+3. Build temporal cinematic abstraction.
+4. Run multi-pass directing generation (style, beats, shots, critique).
+5. Solve temporal trajectories with transition-aware continuity.
+6. Validate, persist, and expose artifacts in backend + web debug UI.
 
 ---
 
-## 2) Canonical Event Contract (Now)
+## 2. Near-Term Priorities
 
-### Raw Event Layer (`raw_events`)
+### P1: Better Temporal Coverage Quality
 
-Machine-oriented, deterministic, geometry/timing derived:
+- Add candidate-shot generation + reranking by cinematic quality metrics.
+- Improve event-to-shot alignment scoring and corrective rewrites.
 
-- `event_id`
-- `event_type`
-- `timestamp`
-- `duration`
-- `object_ids`
-- `description`
+### P2: Richer Event Semantics
 
-Typical `event_type`: `appear`, `disappear`, `speed_change`, `direction_change`, `interaction`, `occlusion_start`, `occlusion_end`.
+- Expand `semantic_events` quality checks.
+- Improve mapping from semantic event role to camera behavior.
+- Keep event semantics grounded in raw evidence.
 
-### Semantic Event Layer (`semantic_events`)
+### P3: Edit-Aware Trajectory Refinement
 
-Human-readable interpretation layer for directing/debug:
+- Improve transition-specific trajectory behavior and framing continuity.
+- Add stronger event-emphasis constraints near decisive moments.
 
-- `semantic_id`
-- `label`
-- `time_start`, `time_end`
-- `object_ids`
-- `summary`
-- `salience`, `confidence`
-- `evidence_event_ids`
-- `tags`
+### P4: Unity Handshake Stability
 
-Important rule: semantic events must be evidence-grounded in raw events and tracks.
+- Lock schema/version strategy for timeline payloads.
+- Add compatibility checks for Unity-uploaded scene timeline contracts.
 
 ---
 
-## 3) Recommended Data Flow (Target-Steady)
+## 3. Operational Rules
 
-1. Unity captures temporal data and emits `raw_events` (plus legacy `events` for compatibility).
-2. Unity sends timeline + user intent to backend.
-3. Backend enriches with `semantic_events` (LLM pass + validator + fallback).
-4. Backend runs beat/shot/trajectory planning.
-5. Frontend/Unity playback tools visualize both layers.
+- Preserve backward compatibility for legacy `events` where possible.
+- Prefer scene-agnostic logic over domain-specific hardcoding.
+- Keep output artifacts reproducible and inspectable for debugging.
 
----
-
-## 4) Sample Scene Policy (Updated)
-
-We keep temporal sample files in:
-
-- `director-service/scenes/temporal_*.json`
-
-Each temporal sample should:
-
-- include `raw_events`
-- include `events` as compatibility mirror
-- allow `semantic_events` to be empty (recommended for testing interpretation pass), or pre-filled for fixed regression scenes
-
-Current slot-car reference sample:
-
-- `director-service/scenes/temporal_slot_car_compact_track.json`
-
----
-
-## 5) Next Development Priorities
-
-### P1: Generic Raw Event Coverage (Unity + backend deterministic layer)
-
-- Add pairwise, scene-agnostic relation events:
-  - proximity start/end
-  - contact start/end
-  - sustained co-motion
-- Add hysteresis/cooldown to reduce event noise.
-
-### P2: Semantic Event Quality Loop (Backend)
-
-- Add stricter semantic event validation:
-  - time window sanity
-  - object ID existence
-  - evidence linkage checks
-- Add optional critique/rewrite pass for semantic event clarity.
-
-### P3: Frontend Explainability
-
-- Add explicit toggle between raw and semantic event tracks.
-- Add hover cards showing semantic event evidence mapping (`evidence_event_ids`).
-
-### P4: Evaluation Harness (Engineering, not thesis export)
-
-- Compare before/after plans using:
-  - event coverage in shot windows
-  - subject continuity
-  - cut readability under motion
-
----
-
-## 6) Versioning/Compatibility Notes
-
-- `events` remains accepted and emitted for old clients.
-- New clients should prefer:
-  - `raw_events` for deterministic logic
-  - `semantic_events` for UI readability and directing context
-- Backward compatibility is intentionally maintained in both Unity payloads and backend models.
