@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace DirectorRuntime
@@ -286,6 +285,109 @@ namespace DirectorRuntime
                       $"SceneId: {loaded.scene_id}, Duration: {RecordingDuration:F2}s, " +
                       $"Objects: {loaded.objects_static.Count}, Tracks: {loaded.object_tracks.Count}");
             return true;
+        }
+
+        /// <summary>
+        /// Applies a pose sampled from the loaded timeline to matching scene actors.
+        /// Returns true if at least one actor was updated.
+        /// </summary>
+        public bool ApplyTimelinePose(float timestamp, out int appliedActors, out int missingActors)
+        {
+            appliedActors = 0;
+            missingActors = 0;
+
+            if (lastTimeline == null || lastTimeline.object_tracks == null || lastTimeline.object_tracks.Count == 0)
+                return false;
+
+            var actors = FindObjectsByType<ReplayableActor>(FindObjectsSortMode.None);
+            var actorMap = new Dictionary<string, ReplayableActor>();
+            foreach (var actor in actors)
+            {
+                if (!string.IsNullOrEmpty(actor.actorId))
+                    actorMap[actor.actorId] = actor;
+            }
+
+            foreach (var track in lastTimeline.object_tracks)
+            {
+                if (track == null || string.IsNullOrEmpty(track.object_id) || track.samples == null || track.samples.Count == 0)
+                    continue;
+
+                if (!actorMap.TryGetValue(track.object_id, out var target))
+                {
+                    missingActors++;
+                    continue;
+                }
+
+                var sample = SampleTrackAt(track.samples, timestamp);
+                if (sample.position != null && sample.position.Length >= 3)
+                {
+                    target.transform.position = new Vector3(
+                        sample.position[0],
+                        sample.position[1],
+                        sample.position[2]);
+                }
+
+                if (sample.rotation != null && sample.rotation.Length >= 3)
+                {
+                    target.transform.rotation = Quaternion.Euler(
+                        sample.rotation[0],
+                        sample.rotation[1],
+                        sample.rotation[2]);
+                }
+
+                appliedActors++;
+            }
+
+            return appliedActors > 0;
+        }
+
+        private static ObjectTrackSample SampleTrackAt(List<ObjectTrackSample> samples, float timestamp)
+        {
+            if (samples.Count == 1 || timestamp <= samples[0].timestamp)
+                return samples[0];
+
+            var last = samples[samples.Count - 1];
+            if (timestamp >= last.timestamp)
+                return last;
+
+            for (int i = 0; i < samples.Count - 1; i++)
+            {
+                var a = samples[i];
+                var b = samples[i + 1];
+                if (timestamp < a.timestamp || timestamp > b.timestamp)
+                    continue;
+
+                float dt = Mathf.Max(b.timestamp - a.timestamp, 0.0001f);
+                float t = Mathf.Clamp01((timestamp - a.timestamp) / dt);
+
+                var pa = (a.position != null && a.position.Length >= 3)
+                    ? new Vector3(a.position[0], a.position[1], a.position[2])
+                    : Vector3.zero;
+                var pb = (b.position != null && b.position.Length >= 3)
+                    ? new Vector3(b.position[0], b.position[1], b.position[2])
+                    : pa;
+
+                var ra = (a.rotation != null && a.rotation.Length >= 3)
+                    ? Quaternion.Euler(a.rotation[0], a.rotation[1], a.rotation[2])
+                    : Quaternion.identity;
+                var rb = (b.rotation != null && b.rotation.Length >= 3)
+                    ? Quaternion.Euler(b.rotation[0], b.rotation[1], b.rotation[2])
+                    : ra;
+
+                var p = Vector3.Lerp(pa, pb, t);
+                var r = Quaternion.Slerp(ra, rb, t).eulerAngles;
+
+                return new ObjectTrackSample
+                {
+                    timestamp = timestamp,
+                    position = new[] { p.x, p.y, p.z },
+                    rotation = new[] { r.x, r.y, r.z },
+                    velocity = new[] { 0f, 0f, 0f },
+                    visible = true
+                };
+            }
+
+            return last;
         }
 
         /// <summary>

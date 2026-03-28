@@ -29,6 +29,11 @@ namespace DirectorRuntime
         [Tooltip("Save debug JSON artifacts after each request.")]
         public bool saveDebugFiles = true;
 
+        [Header("UI")]
+        [Tooltip("GUI scale factor. 0 = auto-detect from screen DPI.")]
+        [Range(0f, 4f)]
+        public float uiScale = 0f;
+
         [Header("Demo Quality")]
         [Tooltip("Automatically style scene colors/materials for a cleaner demo look.")]
         public bool autoPolishVisuals = true;
@@ -240,6 +245,11 @@ namespace DirectorRuntime
 
         void OnGUI()
         {
+            float s = uiScale > 0f ? uiScale : (Screen.dpi > 0 ? Screen.dpi / 96f : 2f);
+            s = Mathf.Clamp(s, 1f, 4f);
+            var prevMatrix = GUI.matrix;
+            GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(s, s, 1f));
+
             EnsureStyles();
             float w = 260, h = 36, pad = 6;
             float x = 10, y = 10;
@@ -251,6 +261,23 @@ namespace DirectorRuntime
             // Status
             GUI.Label(new Rect(x, y, 400, 20), _statusMessage, _statusStyle);
             y += 24;
+
+            // Intent editor (core user input for directing)
+            GUI.Label(new Rect(x, y, w, 20), "<b>Intent</b>", _headerSmallStyle ?? GUI.skin.label);
+            y += 20;
+            intent = GUI.TextArea(
+                new Rect(x, y, 400, 64),
+                string.IsNullOrEmpty(intent) ? "" : intent,
+                _textAreaStyle ?? GUI.skin.textArea);
+            y += 64 + pad;
+
+            if (string.IsNullOrWhiteSpace(intent))
+            {
+                GUI.Label(
+                    new Rect(x, y, 420, 20),
+                    "Enter intent before generating (e.g. cinematic race coverage with dramatic cuts).");
+                y += 20;
+            }
 
             // Recording controls
             GUI.enabled = (_state == State.Idle || _state == State.ReadyToPlay);
@@ -265,7 +292,9 @@ namespace DirectorRuntime
 
             // Generate
             GUI.enabled = (_state == State.Idle || _state == State.ReadyToPlay) &&
-                          _recorder.lastTimeline != null && !_apiClient.IsBusy;
+                          _recorder.lastTimeline != null &&
+                          !string.IsNullOrWhiteSpace(intent) &&
+                          !_apiClient.IsBusy;
             if (GUI.Button(new Rect(x, y, w, h), "Generate Plan"))
                 GeneratePlan();
             y += h + pad;
@@ -322,7 +351,20 @@ namespace DirectorRuntime
                         {
                             if (_recorder.LoadTimeline(_cachedFiles[i]))
                             {
-                                _statusMessage = $"Loaded: {_cachedFiles[i]}. Ready to generate.";
+                                _lastResponse = null; // Loaded timeline invalidates any previous plan
+                                _state = State.Idle;
+
+                                if (_recorder.ApplyTimelinePose(0f, out int applied, out int missing))
+                                {
+                                    _statusMessage =
+                                        $"Loaded: {_cachedFiles[i]}. Applied start pose to {applied} actor(s)" +
+                                        (missing > 0 ? $", missing {missing}." : ".") +
+                                        " Ready to generate.";
+                                }
+                                else
+                                {
+                                    _statusMessage = $"Loaded: {_cachedFiles[i]}. Timeline is ready to generate.";
+                                }
                                 _showCachePicker = false;
                             }
                             else
@@ -360,18 +402,22 @@ namespace DirectorRuntime
                 y += 4;
                 GUI.Label(new Rect(x, y, 300, 20), "Waiting for backend response...");
             }
+
+            GUI.matrix = prevMatrix;
         }
 
         // Lazy style caches
         private GUIStyle _headerStyle;
         private GUIStyle _headerSmallStyle;
         private GUIStyle _statusStyle;
+        private GUIStyle _textAreaStyle;
 
         void OnEnable()
         {
             _headerStyle = null;
             _statusStyle = null;
             _headerSmallStyle = null;
+            _textAreaStyle = null;
         }
 
         private void EnsureStyles()
@@ -381,6 +427,7 @@ namespace DirectorRuntime
                 _headerStyle = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 16 };
                 _headerSmallStyle = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 12 };
                 _statusStyle = new GUIStyle(GUI.skin.label) { wordWrap = true, fontSize = 11 };
+                _textAreaStyle = new GUIStyle(GUI.skin.textArea) { wordWrap = true, fontSize = 11 };
             }
         }
 
