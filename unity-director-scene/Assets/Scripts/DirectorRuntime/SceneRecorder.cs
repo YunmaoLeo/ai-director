@@ -1,0 +1,305 @@
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+namespace DirectorRuntime
+{
+    /// <summary>
+    /// Records all ReplayableActors in the scene and produces a valid SceneTimelineData
+    /// payload for the backend temporal planning API.
+    /// </summary>
+    public class SceneRecorder : MonoBehaviour
+    {
+        [Header("Recording Settings")]
+        [Tooltip("Samples per second during recording.")]
+        public float sampleRate = 10f;
+
+        [Tooltip("Scene-agnostic type label (e.g. 'dynamic_scene', 'race', 'dialog').")]
+        public string sceneType = "dynamic_scene";
+
+        [Tooltip("Human-readable scene name.")]
+        public string sceneName = "Recorded Scene";
+
+        [Tooltip("Optional description.")]
+        public string sceneDescription = "";
+
+        public bool IsRecording { get; private set; }
+        public float RecordingStartTime { get; private set; }
+        public float RecordingDuration { get; private set; }
+
+        private float _nextSampleTime;
+        private float _recordTime;
+        private ReplayableActor[] _actors;
+
+        [Header("Timeline Cache")]
+        [Tooltip("File path for saving/loading cached timelines. Relative to project root.")]
+        public string timelineCacheDir = "TimelineCache";
+
+        /// <summary>Last built timeline, kept for debug inspection.</summary>
+        [HideInInspector] public SceneTimelineData lastTimeline;
+        [HideInInspector] public string lastTimelineJson;
+
+        public bool StartRecording()
+        {
+            _actors = FindObjectsByType<ReplayableActor>(FindObjectsSortMode.None);
+            if (_actors.Length == 0)
+            {
+                Debug.LogWarning("[SceneRecorder] No ReplayableActor found in scene.");
+                return false;
+            }
+
+            foreach (var a in _actors) a.BeginRecording();
+
+            _recordTime = 0f;
+            _nextSampleTime = 0f;
+            RecordingStartTime = Time.time;
+            IsRecording = true;
+            Debug.Log($"[SceneRecorder] Recording started. Actors: {_actors.Length}, SampleRate: {sampleRate}Hz");
+            return true;
+        }
+
+        public void StopRecording()
+        {
+            if (!IsRecording) return;
+            IsRecording = false;
+            RecordingDuration = _recordTime;
+            Debug.Log($"[SceneRecorder] Recording stopped. Duration: {RecordingDuration:F2}s, " +
+                      $"Samples/actor: {(_actors.Length > 0 ? _actors[0].recordedSnapshots.Count : 0)}");
+        }
+
+        void Update()
+        {
+            if (!IsRecording) return;
+
+            _recordTime += Time.deltaTime;
+            if (_recordTime >= _nextSampleTime)
+            {
+                foreach (var a in _actors)
+                    a.CaptureSnapshot(_recordTime);
+                _nextSampleTime += 1f / sampleRate;
+            }
+        }
+
+        /// <summary>
+        /// Builds a SceneTimelineData from the last recording.
+        /// Also populates raw_events with basic motion-derived events.
+        /// </summary>
+        public SceneTimelineData BuildTimeline(string sceneId = null)
+        {
+            if (_actors == null || _actors.Length == 0)
+            {
+                Debug.LogError("[SceneRecorder] No recording data available.");
+                return null;
+            }
+
+            var timeline = new SceneTimelineData
+            {
+                scene_id = sceneId ?? System.Guid.NewGuid().ToString("N").Substring(0, 12),
+                scene_name = sceneName,
+                scene_type = sceneType,
+                description = sceneDescription,
+                time_span = new TimeSpan { start = 0, end = RecordingDuration, duration = RecordingDuration }
+            };
+
+            // Compute scene bounds from all recorded positions
+            Vector3 minP = Vector3.one * float.MaxValue;
+            Vector3 maxP = Vector3.one * float.MinValue;
+
+            foreach (var actor in _actors)
+            {
+                // Static object entry
+                var so = new SceneObject
+                {
+                    id = actor.actorId,
+                    name = actor.actorName,
+                    category = actor.category,
+                    importance = actor.importance,
+                    tags = new List<string>(actor.tags)
+                };
+
+                if (actor.recordedSnapshots.Count > 0)
+                {
+                    var first = actor.recordedSnapshots[0];
+                    so.position = new float[] { first.position.x, first.position.y, first.position.z };
+                    var fwd = actor.transform.forward;
+                    so.forward = new float[] { fwd.x, fwd.y, fwd.z };
+                }
+                var sz = actor.GetSize();
+                so.size = new float[] { sz.x, sz.y, sz.z };
+                timeline.objects_static.Add(so);
+
+                // Object track
+                var track = new ObjectTrack { object_id = actor.actorId };
+                float totalDisp = 0;
+                float maxSpd = 0;
+                Vector3 prevPos = Vector3.zero;
+                Vector3 dirAccum = Vector3.zero;
+
+                for (int i = 0; i < actor.recordedSnapshots.Count; i++)
+                {
+                    var snap = actor.recordedSnapshots[i];
+                    var sample = new ObjectTrackSample
+                    {
+                        timestamp = snap.time,
+                        position = new float[] { snap.position.x, snap.position.y, snap.position.z },
+                        rotation = new float[] { snap.rotation.eulerAngles.x, snap.rotation.eulerAngles.y, snap.rotation.eulerAngles.z },
+                        velocity = new float[] { snap.velocity.x, snap.velocity.y, snap.velocity.z },
+                        visible = snap.visible
+                    };
+                    track.samples.Add(sample);
+
+                    // Bounds
+                    minP = Vector3.Min(minP, snap.position);
+                    maxP = Vector3.Max(maxP, snap.position);
+
+                    // Motion stats
+                    float spd = snap.velocity.magnitude;
+                    if (spd > maxSpd) maxSpd = spd;
+                    if (i > 0)
+                    {
+                        totalDisp += Vector3.Distance(snap.position, prevPos);
+                        dirAccum += (snap.position - prevPos).normalized;
+                    }
+                    prevPos = snap.position;
+                }
+
+                float avgSpd = actor.recordedSnapshots.Count > 1
+                    ? totalDisp / Mathf.Max(RecordingDuration, 0.01f) : 0;
+                var dirTrend = dirAccum.normalized;
+                track.motion = new MotionDescriptor
+                {
+                    average_speed = avgSpd,
+                    max_speed = maxSpd,
+                    direction_trend = new float[] { dirTrend.x, dirTrend.y, dirTrend.z },
+                    acceleration_bucket = ClassifyAcceleration(actor.recordedSnapshots),
+                    total_displacement = totalDisp
+                };
+
+                // Mark first and last as keyframes, plus speed-change moments
+                if (track.samples.Count > 0)
+                {
+                    track.keyframe_indices.Add(0);
+                    if (track.samples.Count > 1)
+                        track.keyframe_indices.Add(track.samples.Count - 1);
+                }
+
+                timeline.object_tracks.Add(track);
+            }
+
+            // Bounds
+            var span = maxP - minP;
+            timeline.bounds = new Bounds
+            {
+                width = Mathf.Max(span.x, 1f),
+                length = Mathf.Max(span.z, 1f),
+                height = Mathf.Max(span.y, 1f)
+            };
+
+            // Leave semantic_events empty; backend will enrich
+            timeline.semantic_events = new List<SemanticSceneEvent>();
+
+            // Run the scene analyzer: generates descriptions, relations,
+            // camera candidates, and rich raw_events
+            DirectorTemporalSceneAnalyzer.Analyze(timeline, _actors);
+
+            lastTimeline = timeline;
+            lastTimelineJson = JsonUtility.ToJson(timeline, true);
+            Debug.Log($"[SceneRecorder] Timeline built. Objects: {timeline.objects_static.Count}, " +
+                      $"Tracks: {timeline.object_tracks.Count}, RawEvents: {timeline.raw_events.Count}");
+            return timeline;
+        }
+
+        private static string ClassifyAcceleration(List<ReplayableActor.Snapshot> snaps)
+        {
+            if (snaps.Count < 3) return "constant";
+            float firstSpeed = snaps[1].velocity.magnitude;
+            float lastSpeed = snaps[snaps.Count - 1].velocity.magnitude;
+            float diff = lastSpeed - firstSpeed;
+            if (Mathf.Abs(diff) < 1f) return "constant";
+            return diff > 0 ? "accelerating" : "decelerating";
+        }
+
+        // ── Timeline Cache (Save / Load) ──
+
+        private string GetCacheRoot()
+        {
+            // Place cache folder next to Assets/ (project root), not inside Assets/
+            string projectRoot = System.IO.Path.GetDirectoryName(Application.dataPath);
+            string dir = System.IO.Path.Combine(projectRoot, timelineCacheDir);
+            if (!System.IO.Directory.Exists(dir))
+                System.IO.Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        /// <summary>
+        /// Saves the last built timeline JSON to disk.
+        /// Returns the full file path, or null on failure.
+        /// </summary>
+        public string SaveTimeline(string label = null)
+        {
+            if (string.IsNullOrEmpty(lastTimelineJson))
+            {
+                Debug.LogWarning("[SceneRecorder] No timeline to save.");
+                return null;
+            }
+
+            string fileName = string.IsNullOrEmpty(label)
+                ? $"timeline_{lastTimeline.scene_id}.json"
+                : $"timeline_{label}.json";
+            string path = System.IO.Path.Combine(GetCacheRoot(), fileName);
+            System.IO.File.WriteAllText(path, lastTimelineJson);
+            Debug.Log($"[SceneRecorder] Timeline saved to {path}");
+            return path;
+        }
+
+        /// <summary>
+        /// Loads a cached timeline JSON from disk into lastTimeline / lastTimelineJson.
+        /// Accepts a full path or just a filename (resolved relative to cache dir).
+        /// Returns true on success.
+        /// </summary>
+        public bool LoadTimeline(string pathOrName)
+        {
+            string path = pathOrName;
+            if (!System.IO.File.Exists(path))
+            {
+                // Try resolving relative to cache dir
+                path = System.IO.Path.Combine(GetCacheRoot(), pathOrName);
+            }
+            if (!System.IO.File.Exists(path))
+            {
+                Debug.LogError($"[SceneRecorder] Cache file not found: {pathOrName}");
+                return false;
+            }
+
+            string json = System.IO.File.ReadAllText(path);
+            var loaded = JsonUtility.FromJson<SceneTimelineData>(json);
+            if (loaded == null)
+            {
+                Debug.LogError($"[SceneRecorder] Failed to parse timeline from {path}");
+                return false;
+            }
+
+            lastTimeline = loaded;
+            lastTimelineJson = json;
+            RecordingDuration = loaded.time_span != null ? loaded.time_span.duration : 0;
+            Debug.Log($"[SceneRecorder] Timeline loaded from {path}. " +
+                      $"SceneId: {loaded.scene_id}, Duration: {RecordingDuration:F2}s, " +
+                      $"Objects: {loaded.objects_static.Count}, Tracks: {loaded.object_tracks.Count}");
+            return true;
+        }
+
+        /// <summary>
+        /// Returns file names of all cached timelines in the cache directory.
+        /// </summary>
+        public string[] ListCachedTimelines()
+        {
+            string dir = GetCacheRoot();
+            if (!System.IO.Directory.Exists(dir)) return new string[0];
+            var files = System.IO.Directory.GetFiles(dir, "timeline_*.json");
+            var names = new string[files.Length];
+            for (int i = 0; i < files.Length; i++)
+                names[i] = System.IO.Path.GetFileName(files[i]);
+            return names;
+        }
+    }
+}
