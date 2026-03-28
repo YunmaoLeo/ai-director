@@ -25,6 +25,9 @@ namespace DirectorRuntime
         [Tooltip("Enable and style waypoint line renderers.")]
         public bool styleWaypointLines = true;
 
+        [Tooltip("Apply runtime red/blue palette override on vehicle meshes.")]
+        public bool recolorVehicles = false;
+
         private static Material _carBodyRed;
         private static Material _carAccentRed;
         private static Material _carBodyBlue;
@@ -101,7 +104,8 @@ namespace DirectorRuntime
         public void Apply()
         {
             EnsureMaterialCache();
-            ApplyVehicleMaterials();
+            if (recolorVehicles)
+                ApplyVehicleMaterials();
             ApplyEnvironmentMaterials();
             if (styleWaypointLines)
                 StyleWaypointPaths();

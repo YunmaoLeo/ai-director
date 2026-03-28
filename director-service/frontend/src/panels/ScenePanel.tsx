@@ -89,6 +89,17 @@ export default function ScenePanel({ scene, mode = 'static', sceneTimeline }: Pr
     : [];
   const activeEventObjectIds = (activeSemanticEvents.length > 0 ? activeSemanticEvents : activeRawEvents)
     .flatMap(evt => evt.object_ids);
+  const activeRawEventSummaries = summarizeRawEvents(activeRawEvents);
+  const handleScenePlayToggle = () => {
+    if (!timeSpan) return;
+    setIsPlaying(prev => {
+      if (prev) return false;
+      if (playheadSeconds >= timeSpan.end - 0.001) {
+        setPlayheadSeconds(timeSpan.start);
+      }
+      return true;
+    });
+  };
 
   return (
     <div className="panel">
@@ -106,7 +117,7 @@ export default function ScenePanel({ scene, mode = 'static', sceneTimeline }: Pr
         <>
           <h4>Timeline Preview</h4>
           <div className="tag-list" style={{ marginBottom: 8 }}>
-            <button className="tag-button" type="button" onClick={() => setIsPlaying(prev => !prev)}>
+            <button className="tag-button" type="button" onClick={handleScenePlayToggle}>
               {isPlaying ? 'Pause' : 'Play'}
             </button>
             <button
@@ -147,9 +158,9 @@ export default function ScenePanel({ scene, mode = 'static', sceneTimeline }: Pr
           )}
           {activeSemanticEvents.length === 0 && activeRawEvents.length > 0 && (
             <div className="tag-list" style={{ marginBottom: 8 }}>
-              {activeRawEvents.map(evt => (
-                <span key={evt.event_id} className="tag tag-blue">
-                  {evt.event_type}: {evt.description}
+              {activeRawEventSummaries.map(summary => (
+                <span key={summary} className="tag tag-blue">
+                  {summary}
                 </span>
               ))}
             </div>
@@ -246,7 +257,20 @@ function lerpTuple(
 function isTimeInWindow(time: number, start: number, end: number): boolean {
   const normalizedEnd = end >= start ? end : start;
   if (Math.abs(normalizedEnd - start) < 0.001) {
-    return Math.abs(time - start) <= 0.12;
+    return Math.abs(time - start) <= 0.35;
   }
   return time >= start && time <= normalizedEnd;
+}
+
+function summarizeRawEvents(events: SceneEvent[]): string[] {
+  const counts = new Map<string, number>();
+  for (const evt of events) {
+    const key = (evt.event_type || 'event').trim().toLowerCase();
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([type, count]) => `${type} x${count}`);
 }

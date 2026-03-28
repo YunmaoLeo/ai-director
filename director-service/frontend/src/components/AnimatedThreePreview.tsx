@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { SceneSummary, TemporalShotTrajectory, ObjectTrack, TimedTrajectoryPoint } from '../types';
 
+const ENABLE_TRANSITION_FLASH = false;
+
 interface Props {
   scene: SceneSummary;
   trajectories: TemporalShotTrajectory[];
@@ -170,10 +172,11 @@ function rebuildScene(
   scene.objects.forEach((obj) => {
     runtime.staticObjectMap.set(obj.id, obj);
     if (trackedIds.has(obj.id)) return; // Skip tracked objects, they're animated
+    const displaySize = getDisplaySize(obj.size, obj.category, 0.08);
     const geo = new THREE.BoxGeometry(
-      Math.max(obj.size[0], 0.08),
-      Math.max(obj.size[1], 0.08),
-      Math.max(obj.size[2], 0.08),
+      displaySize[0],
+      displaySize[1],
+      displaySize[2],
     );
     const mat = new THREE.MeshStandardMaterial({
       color: resolveObjectColor(obj.category, obj.name, obj.id),
@@ -196,14 +199,17 @@ function rebuildScene(
   const minHeight = Math.max(0.12, sceneSpan * 0.018);
   objectTracks.forEach((track) => {
     const obj = scene.objects.find((o) => o.id === track.object_id);
-    const isVehicle = (obj?.category ?? '').toLowerCase() === 'vehicle';
-    const vehicleFootprint = Math.max(minFootprint, 0.22);
-    const vehicleHeight = Math.max(minHeight, 0.14);
+    const category = obj?.category ?? 'vehicle';
+    const isVehicle = category.toLowerCase() === 'vehicle';
+    const vehicleFootprint = Math.max(minFootprint, 0.14);
+    const vehicleHeight = Math.max(minHeight, 0.11);
+    const baseSize = obj?.size ?? [0.4, 1.6, 0.4];
+    const displaySize = getDisplaySize(baseSize as [number, number, number], category, 0.08);
     const size: [number, number, number] = obj
       ? [
-          Math.max(obj.size[0], isVehicle ? vehicleFootprint : minFootprint),
-          Math.max(obj.size[1], isVehicle ? vehicleHeight : minHeight),
-          Math.max(obj.size[2], isVehicle ? vehicleFootprint : minFootprint),
+          Math.max(displaySize[0], isVehicle ? vehicleFootprint : minFootprint),
+          Math.max(displaySize[1], isVehicle ? vehicleHeight : minHeight),
+          Math.max(displaySize[2], isVehicle ? vehicleFootprint : minFootprint),
         ]
       : [0.4, 1.6, 0.4];
     const geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
@@ -254,10 +260,11 @@ function rebuildScene(
   scene.objects.forEach((obj) => {
     if ((obj.category ?? '').toLowerCase() !== 'vehicle') return;
     if (runtime.trackMeshes.has(obj.id)) return;
+    const displaySize = getDisplaySize(obj.size, obj.category, 0.08);
     const size: [number, number, number] = [
-      Math.max(obj.size[0], Math.max(minFootprint, 0.22)),
-      Math.max(obj.size[1], Math.max(minHeight, 0.14)),
-      Math.max(obj.size[2], Math.max(minFootprint, 0.22)),
+      Math.max(displaySize[0], Math.max(minFootprint, 0.14)),
+      Math.max(displaySize[1], Math.max(minHeight, 0.11)),
+      Math.max(displaySize[2], Math.max(minFootprint, 0.14)),
     ];
     const geo = new THREE.BoxGeometry(size[0], size[1], size[2]);
     const mat = new THREE.MeshStandardMaterial({
@@ -321,7 +328,7 @@ function updateAnimatedFrame(
     if (!mesh || track.samples.length === 0) return;
     const pos = interpolateTrackPosition(track.samples, playheadSeconds);
     const obj = runtime.staticObjectMap.get(track.object_id);
-    const halfH = obj ? Math.max(obj.size[1] / 2, 0.07) : 0.8;
+    const halfH = obj ? Math.max(getDisplaySize(obj.size, obj.category, 0.08)[1] / 2, 0.07) : 0.8;
     const supportY = computeSupportSurfaceY(pos[0], pos[2], runtime.staticObjectMap, track.object_id);
     const centerY = Math.max(pos[1] + halfH, (supportY ?? pos[1]) + halfH + 0.01);
     mesh.position.set(pos[0], centerY, pos[2]);
@@ -507,27 +514,24 @@ function computeTransitionFlashOpacity(
   trajectories: TemporalShotTrajectory[],
   shotTransitions: Record<string, string>,
 ): number {
+  if (!ENABLE_TRANSITION_FLASH) return 0;
+
   let maxOpacity = 0;
   for (const traj of trajectories) {
     const transition = (shotTransitions[traj.shot_id] || traj.transition_in || 'cut').toLowerCase();
     const dt = playheadSeconds - traj.time_start;
     if (dt < 0) continue;
 
-    if (transition === 'flash_cut') {
-      const window = 0.12;
-      if (dt <= window) {
-        maxOpacity = Math.max(maxOpacity, (1 - dt / window) * 0.72);
-      }
-    } else if (transition === 'hard_cut') {
-      const window = 0.07;
-      if (dt <= window) {
-        maxOpacity = Math.max(maxOpacity, (1 - dt / window) * 0.24);
-      }
-    } else if (transition === 'whip') {
-      const window = 0.1;
-      if (dt <= window) {
-        maxOpacity = Math.max(maxOpacity, (1 - dt / window) * 0.14);
-      }
+    const isFlashLike =
+      transition === 'flash_cut'
+      || transition === 'flash'
+      || transition === 'whip_flash'
+      || transition === 'strobe';
+    if (!isFlashLike) continue;
+
+    const window = 0.08;
+    if (dt <= window) {
+      maxOpacity = Math.max(maxOpacity, (1 - dt / window) * 0.18);
     }
   }
   return maxOpacity;
@@ -630,4 +634,17 @@ function resolveObjectColor(
   }
 
   return categoryColor((category ?? '').toLowerCase());
+}
+
+function getDisplaySize(
+  size: [number, number, number],
+  category?: string,
+  minEdge = 0.08,
+): [number, number, number] {
+  const scale = (category ?? '').toLowerCase() === 'vehicle' ? 0.65 : 1;
+  return [
+    Math.max(size[0] * scale, minEdge),
+    Math.max(size[1] * scale, minEdge),
+    Math.max(size[2] * scale, minEdge),
+  ];
 }

@@ -57,8 +57,28 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
   const [tempPlayhead, setTempPlayhead] = useState(timeSpan?.start ?? 0);
   const [tempPlaying, setTempPlaying] = useState(false);
   const [tempSpeed, setTempSpeed] = useState(1);
-  const [tempPreviewMode, setTempPreviewMode] = useState<'camera' | 'observer'>('observer');
+  const [tempPreviewMode, setTempPreviewMode] = useState<'camera' | 'observer'>('camera');
   const tempLastFrame = useRef<number | null>(null);
+  const handleStaticPlayToggle = () => {
+    if (playbackDuration <= 0) return;
+    setIsPlaying(prev => {
+      if (prev) return false;
+      if (playheadSeconds >= playbackDuration - 0.001) {
+        setPlayheadSeconds(0);
+      }
+      return true;
+    });
+  };
+  const handleTemporalPlayToggle = () => {
+    if (!timeSpan || timeSpan.duration <= 0) return;
+    setTempPlaying(prev => {
+      if (prev) return false;
+      if (tempPlayhead >= timeSpan.end - 0.001) {
+        setTempPlayhead(timeSpan.start);
+      }
+      return true;
+    });
+  };
 
   useEffect(() => {
     setPlayheadSeconds(0);
@@ -132,6 +152,10 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
 
   // Temporal mode rendering
   if (mode === 'temporal') {
+    if (!tempTimeline) {
+      return <div className="panel"><h3>Temporal Preview</h3><p className="muted">This run is missing scene_timeline, so temporal scene rendering is unavailable.</p></div>;
+    }
+
     if (!temporalScene || !tempTraj || !tempPlan || !timeSpan) {
       return <div className="panel"><h3>Temporal Preview</h3><p className="muted">No temporal data</p></div>;
     }
@@ -140,7 +164,7 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
       <div className="panel">
         <h3>Temporal Preview</h3>
         <div className="tag-list" style={{ marginBottom: 8 }}>
-          <button className="tag-button" onClick={() => setTempPlaying(p => !p)}>
+          <button className="tag-button" onClick={handleTemporalPlayToggle}>
             {tempPlaying ? 'Pause' : 'Play'}
           </button>
           <button className="tag-button" onClick={() => { setTempPlaying(false); setTempPlayhead(timeSpan.start); }}>
@@ -212,7 +236,7 @@ export default function TrajectoryPanel({ scene, trajectory, selectedShotId, onS
     <div className="panel">
       <h3>Trajectory Preview</h3>
       <div className="tag-list" style={{ marginBottom: 12 }}>
-        <button className="tag-button" onClick={() => setIsPlaying(prev => !prev)} disabled={playbackDuration <= 0}>
+        <button className="tag-button" onClick={handleStaticPlayToggle} disabled={playbackDuration <= 0}>
           {isPlaying ? 'Pause' : 'Play'}
         </button>
         <button className="tag-button" onClick={() => { setIsPlaying(false); setPlayheadSeconds(0); }}>

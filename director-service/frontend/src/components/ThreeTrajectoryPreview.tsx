@@ -165,10 +165,11 @@ function updateSceneContent(
   runtime.root.add(roomEdges);
 
   scene.objects.forEach((objectData) => {
+    const displaySize = getDisplaySize(objectData.size, objectData.category);
     const geometry = new THREE.BoxGeometry(
-      Math.max(objectData.size[0], 0.08),
-      Math.max(objectData.size[1], 0.08),
-      Math.max(objectData.size[2], 0.08),
+      displaySize[0],
+      displaySize[1],
+      displaySize[2],
     );
     const material = new THREE.MeshStandardMaterial({
       color: categoryColor(objectData.category),
@@ -284,6 +285,15 @@ function createPlaybackMarker(): THREE.Group {
 function shotColor(index: number): number {
   const palette = [0x4caf50, 0x2196f3, 0xff9800, 0xe91e63, 0x9c27b0, 0x00bcd4];
   return palette[index % palette.length];
+}
+
+function getDisplaySize(size: [number, number, number], category?: string): [number, number, number] {
+  const scale = (category ?? '').toLowerCase() === 'vehicle' ? 0.65 : 1;
+  return [
+    Math.max(size[0] * scale, 0.08),
+    Math.max(size[1] * scale, 0.08),
+    Math.max(size[2] * scale, 0.08),
+  ];
 }
 
 function categoryColor(category: string): number {

@@ -44,16 +44,20 @@ export default function TopDownCanvas({
     const H = canvas.height;
     const pad = 40;
 
+    const extents = computeViewExtents(scene, trajectories, currentCameraPosition, currentLookAtPosition, objectPositionOverrides);
+    const spanX = Math.max(extents.maxX - extents.minX, 1);
+    const spanZ = Math.max(extents.maxZ - extents.minZ, 1);
+
     // Map scene coords (X, Z) to canvas (x, y)
-    const scaleX = (W - 2 * pad) / scene.bounds.width;
-    const scaleZ = (H - 2 * pad) / scene.bounds.length;
+    const scaleX = (W - 2 * pad) / spanX;
+    const scaleZ = (H - 2 * pad) / spanZ;
     const scale = Math.min(scaleX, scaleZ);
-    const offsetX = pad + (W - 2 * pad - scene.bounds.width * scale) / 2;
-    const offsetZ = pad + (H - 2 * pad - scene.bounds.length * scale) / 2;
+    const offsetX = pad + (W - 2 * pad - spanX * scale) / 2;
+    const offsetZ = pad + (H - 2 * pad - spanZ * scale) / 2;
 
     const toCanvas = (x: number, z: number): [number, number] => [
-      offsetX + x * scale,
-      offsetZ + z * scale,
+      offsetX + (x - extents.minX) * scale,
+      offsetZ + (z - extents.minZ) * scale,
     ];
 
     // Clear
@@ -61,18 +65,19 @@ export default function TopDownCanvas({
     ctx.fillRect(0, 0, W, H);
 
     // Draw room bounds
-    const [rx, rz] = toCanvas(0, 0);
+    const [rx, rz] = toCanvas(extents.minX, extents.minZ);
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 2;
-    ctx.strokeRect(rx, rz, scene.bounds.width * scale, scene.bounds.length * scale);
+    ctx.strokeRect(rx, rz, spanX * scale, spanZ * scale);
 
     // Draw objects
     const highlighted = new Set(highlightedObjectIds ?? []);
     for (const obj of scene.objects) {
       const position = objectPositionOverrides?.[obj.id] ?? obj.position;
       const [cx, cz] = toCanvas(position[0], position[2]);
-      const w = obj.size[0] * scale;
-      const d = obj.size[2] * scale;
+      const displaySize = getDisplaySize(obj);
+      const w = displaySize[0] * scale;
+      const d = displaySize[2] * scale;
 
       const objectColor = resolveObjectColor(obj.category, obj.name, obj.id);
       ctx.fillStyle = objectColor;
@@ -194,7 +199,7 @@ export default function TopDownCanvas({
     ctx.fillStyle = '#888';
     ctx.font = '10px monospace';
     ctx.textAlign = 'left';
-    ctx.fillText(`${scene.bounds.width}m x ${scene.bounds.length}m`, pad, H - 8);
+    ctx.fillText(`${Math.round(spanX * 10) / 10}m x ${Math.round(spanZ * 10) / 10}m`, pad, H - 8);
   }, [
     scene,
     trajectories,
@@ -217,6 +222,60 @@ export default function TopDownCanvas({
       style={{ border: '1px solid #333', borderRadius: 4, background: '#1a1a2e' }}
     />
   );
+}
+
+function computeViewExtents(
+  scene: SceneSummary,
+  trajectories?: ShotTrajectory[],
+  currentCameraPosition?: [number, number, number] | null,
+  currentLookAtPosition?: [number, number, number] | null,
+  objectPositionOverrides?: Record<string, [number, number, number]>,
+): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minZ = Number.POSITIVE_INFINITY;
+  let maxZ = Number.NEGATIVE_INFINITY;
+
+  const pushPoint = (x: number, z: number) => {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    minX = Math.min(minX, x);
+    maxX = Math.max(maxX, x);
+    minZ = Math.min(minZ, z);
+    maxZ = Math.max(maxZ, z);
+  };
+
+  for (const obj of scene.objects) {
+    const p = objectPositionOverrides?.[obj.id] ?? obj.position;
+    const displaySize = getDisplaySize(obj);
+    const halfW = Math.max(displaySize[0], 0.05) * 0.5;
+    const halfD = Math.max(displaySize[2], 0.05) * 0.5;
+    pushPoint(p[0] - halfW, p[2] - halfD);
+    pushPoint(p[0] + halfW, p[2] + halfD);
+  }
+
+  if (trajectories) {
+    for (const traj of trajectories) {
+      for (const pt of traj.sampled_points) {
+        pushPoint(pt[0], pt[2]);
+      }
+      pushPoint(traj.look_at_position[0], traj.look_at_position[2]);
+    }
+  }
+
+  if (currentCameraPosition) pushPoint(currentCameraPosition[0], currentCameraPosition[2]);
+  if (currentLookAtPosition) pushPoint(currentLookAtPosition[0], currentLookAtPosition[2]);
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minZ) || !Number.isFinite(maxX) || !Number.isFinite(maxZ)) {
+    return { minX: 0, minZ: 0, maxX: Math.max(scene.bounds.width, 1), maxZ: Math.max(scene.bounds.length, 1) };
+  }
+
+  const pad = 0.75;
+  return {
+    minX: minX - pad,
+    maxX: maxX + pad,
+    minZ: minZ - pad,
+    maxZ: maxZ + pad,
+  };
 }
 
 function getCategoryColor(category: string): string {
@@ -256,4 +315,14 @@ function shadeHex(hex: string, amount: number): string {
   const g = clamp(Math.round(parseInt(normalized.slice(2, 4), 16) * factor));
   const b = clamp(Math.round(parseInt(normalized.slice(4, 6), 16) * factor));
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
+function getDisplaySize(obj: SceneSummary['objects'][number]): [number, number, number] {
+  const c = (obj.category ?? '').toLowerCase();
+  const scale = c === 'vehicle' ? 0.65 : 1;
+  return [
+    Math.max(obj.size[0] * scale, 0.06),
+    Math.max(obj.size[1] * scale, 0.06),
+    Math.max(obj.size[2] * scale, 0.06),
+  ];
 }

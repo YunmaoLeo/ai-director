@@ -67,10 +67,14 @@ namespace DirectorRuntime
 
         void Awake()
         {
+            if (!Application.runInBackground)
+                Application.runInBackground = true;
+
             _recorder = GetComponent<SceneRecorder>();
             _apiClient = GetComponent<DirectorApiClient>();
             _player = GetComponent<CinematicPlayer>();
             EnsureVisualPolish();
+            SetActorMovement(false);
         }
 
         // ── Workflow actions ──
@@ -125,6 +129,9 @@ namespace DirectorRuntime
             _statusMessage = $"Recording stopped. Duration: {_recorder.RecordingDuration:F1}s. Ready to generate.";
             if (savedPath != null)
                 _statusMessage += $"\nCached: {System.IO.Path.GetFileName(savedPath)}";
+
+            // Vehicles should only run while recording.
+            SetActorMovement(false);
         }
 
         public void GeneratePlan()
@@ -176,7 +183,7 @@ namespace DirectorRuntime
         public void StopCinematic()
         {
             _player.Stop();
-            SetActorMovement(true);
+            SetActorMovement(false);
             _state = State.ReadyToPlay;
             _statusMessage = "Playback stopped. Ready to replay or re-record.";
         }
@@ -235,7 +242,7 @@ namespace DirectorRuntime
             // Auto-detect playback end
             if (_state == State.Playing && !_player.IsPlaying)
             {
-                SetActorMovement(true);
+                SetActorMovement(false);
                 _state = State.ReadyToPlay;
                 _statusMessage = "Cinematic finished. Ready to replay.";
             }

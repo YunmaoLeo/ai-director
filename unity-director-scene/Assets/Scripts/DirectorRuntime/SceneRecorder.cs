@@ -34,6 +34,16 @@ namespace DirectorRuntime
         [Tooltip("File path for saving/loading cached timelines. Relative to project root.")]
         public string timelineCacheDir = "TimelineCache";
 
+        [Header("Environment Capture")]
+        [Tooltip("Expand timeline bounds with non-actor environment geometry (ground, track, walls, etc.).")]
+        public bool includeEnvironmentInBounds = true;
+
+        [Tooltip("Emit environment objects into objects_static for better debug visualization/context.")]
+        public bool includeEnvironmentObjects = true;
+
+        [Tooltip("Upper bound for auto-captured environment objects.")]
+        public int maxEnvironmentObjects = 24;
+
         /// <summary>Last built timeline, kept for debug inspection.</summary>
         [HideInInspector] public SceneTimelineData lastTimeline;
         [HideInInspector] public string lastTimelineJson;
@@ -185,6 +195,11 @@ namespace DirectorRuntime
                 timeline.object_tracks.Add(track);
             }
 
+            if (includeEnvironmentInBounds || includeEnvironmentObjects)
+            {
+                AddEnvironmentData(timeline, ref minP, ref maxP);
+            }
+
             // Bounds
             var span = maxP - minP;
             timeline.bounds = new Bounds
@@ -206,6 +221,80 @@ namespace DirectorRuntime
             Debug.Log($"[SceneRecorder] Timeline built. Objects: {timeline.objects_static.Count}, " +
                       $"Tracks: {timeline.object_tracks.Count}, RawEvents: {timeline.raw_events.Count}");
             return timeline;
+        }
+
+        private void AddEnvironmentData(SceneTimelineData timeline, ref Vector3 minP, ref Vector3 maxP)
+        {
+            var seenRoots = new HashSet<int>();
+            int emitted = 0;
+
+            var renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                if (renderer == null || !renderer.enabled) continue;
+                if (renderer.GetComponentInParent<ReplayableActor>() != null) continue;
+                if (!renderer.gameObject.activeInHierarchy) continue;
+                if (!IsEnvironmentLike(renderer.gameObject)) continue;
+
+                var b = renderer.bounds;
+                if (b.size.sqrMagnitude <= 0.0001f) continue;
+
+                if (includeEnvironmentInBounds)
+                {
+                    minP = Vector3.Min(minP, b.min);
+                    maxP = Vector3.Max(maxP, b.max);
+                }
+
+                if (!includeEnvironmentObjects || emitted >= maxEnvironmentObjects) continue;
+
+                var root = renderer.transform.root;
+                int key = root != null ? root.GetInstanceID() : renderer.gameObject.GetInstanceID();
+                if (!seenRoots.Add(key)) continue;
+
+                var so = BuildEnvironmentObject(root != null ? root.gameObject : renderer.gameObject, b, key);
+                timeline.objects_static.Add(so);
+                emitted++;
+            }
+        }
+
+        private static SceneObject BuildEnvironmentObject(GameObject go, UnityEngine.Bounds b, int key)
+        {
+            var lower = (go != null ? go.name : "environment").ToLowerInvariant();
+            bool isGround = lower.Contains("ground") || lower.Contains("floor") || lower.Contains("track") || lower.Contains("road");
+
+            return new SceneObject
+            {
+                id = $"env_{key}",
+                name = go != null ? go.name : "Environment",
+                category = isGround ? "ground" : "architectural",
+                position = new[] { b.center.x, b.center.y, b.center.z },
+                size = new[] { Mathf.Max(b.size.x, 0.1f), Mathf.Max(b.size.y, 0.1f), Mathf.Max(b.size.z, 0.1f) },
+                forward = null,
+                importance = 0.15f,
+                tags = new List<string> { "environment", isGround ? "ground_plane" : "structure" }
+            };
+        }
+
+        private static bool IsEnvironmentLike(GameObject go)
+        {
+            if (go == null) return false;
+            if (go.CompareTag("EditorOnly")) return false;
+            if (go.name.StartsWith("__", System.StringComparison.Ordinal)) return false;
+
+            if (go.isStatic) return true;
+
+            string n = go.name.ToLowerInvariant();
+            return n.Contains("ground")
+                || n.Contains("floor")
+                || n.Contains("track")
+                || n.Contains("road")
+                || n.Contains("terrain")
+                || n.Contains("wall")
+                || n.Contains("room")
+                || n.Contains("arena")
+                || n.Contains("stage")
+                || n.Contains("platform");
         }
 
         private static string ClassifyAcceleration(List<ReplayableActor.Snapshot> snaps)

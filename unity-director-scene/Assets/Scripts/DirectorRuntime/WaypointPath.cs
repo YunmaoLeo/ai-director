@@ -39,6 +39,8 @@ namespace DirectorRuntime
         private LineRenderer _lr;
 
         void Awake() => Build();
+        void OnEnable() => Build();
+        void OnValidate() => Build();
 
         public void Build()
         {

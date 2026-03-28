@@ -11,7 +11,7 @@ import OutputPanel from './panels/OutputPanel';
 export type AppMode = 'static' | 'temporal';
 
 export default function App() {
-  const [mode, setMode] = useState<AppMode>('static');
+  const [mode, setMode] = useState<AppMode>('temporal');
   const [scenes, setScenes] = useState<SceneListItem[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string>('');
   const [scene, setScene] = useState<SceneSummary | null>(null);
@@ -88,6 +88,13 @@ export default function App() {
         );
         setTemporalResult(data);
         setResult(null);
+        if (data.scene_timeline) {
+          setSceneTimeline(data.scene_timeline);
+          setScene(sceneFromTimeline(data.scene_timeline));
+          if (data.scene_timeline.scene_id) {
+            setSelectedSceneId(data.scene_timeline.scene_id);
+          }
+        }
       } else {
         const data = await generatePlan(selectedSceneId, intent, llmModel);
         setResult(data);
@@ -118,6 +125,46 @@ export default function App() {
       const sceneData = await fetchScene(runSceneId);
       setScene(sceneData);
     } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
+  const handleLoadTemporalRun = useCallback(async (savedRun: TemporalGenerateResponse) => {
+    setTemporalResult(savedRun);
+    setResult(null);
+    setSelectedShotId(null);
+    setError(null);
+
+    if (savedRun.scene_timeline) {
+      setSceneTimeline(savedRun.scene_timeline);
+      setScene(sceneFromTimeline(savedRun.scene_timeline));
+      if (savedRun.scene_timeline.scene_id) {
+        setSelectedSceneId(savedRun.scene_timeline.scene_id);
+      }
+      return;
+    }
+
+    const runSceneId = savedRun.scene_id;
+    if (!runSceneId) {
+      setSceneTimeline(null);
+      setError('Loaded temporal run has no scene_timeline and no scene_id.');
+      return;
+    }
+
+    setSelectedSceneId(runSceneId);
+    try {
+      const data = await fetchScene(runSceneId) as unknown as Record<string, unknown>;
+      if (isSceneTimelinePayload(data)) {
+        const timeline = data as unknown as SceneTimeline;
+        setSceneTimeline(timeline);
+        setScene(sceneFromTimeline(timeline));
+      } else {
+        setSceneTimeline(null);
+        setScene(data as unknown as SceneSummary);
+        setError('Temporal run bundle is missing scene_timeline. Loaded scene summary fallback only.');
+      }
+    } catch (err: unknown) {
+      setSceneTimeline(null);
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);
@@ -294,7 +341,7 @@ export default function App() {
                   result={result}
                   history={resultHistory}
                   onLoadSavedRun={handleLoadSavedRun}
-                  onLoadTemporalRun={setTemporalResult}
+                  onLoadTemporalRun={handleLoadTemporalRun}
                   mode={mode}
                   temporalResult={temporalResult}
                 />
