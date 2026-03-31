@@ -159,6 +159,7 @@ namespace DirectorRuntime
         public SceneTimelineData scene_timeline;
         public string llm_provider;
         public string llm_model;
+        public string planning_mode = "freeform_llm";
         public string director_hint = "auto";
         public string director_notes;
     }
@@ -175,6 +176,7 @@ namespace DirectorRuntime
         public string intent;
         public string director_policy;
         public string director_rationale;
+        public string planning_mode;
         public string saved_at;
     }
 

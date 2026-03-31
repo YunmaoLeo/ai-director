@@ -60,9 +60,15 @@ class TemporalPlanPipeline:
         prefix: str = "",
         director_hint: str | None = None,
         director_notes: str | None = None,
+        planning_mode: str = "freeform_llm",
     ) -> TemporalPipelineResult:
         """Run the full temporal planning pipeline."""
-        logger.info("Running temporal pipeline for scene_id=%s", timeline.scene_id)
+        logger.info(
+            "Temporal pipeline started for scene_id=%s planning_mode=%s intent='%s'",
+            timeline.scene_id,
+            planning_mode,
+            " ".join(intent.split())[:120],
+        )
 
         if not timeline.raw_events and timeline.events:
             timeline.raw_events = list(timeline.events)
@@ -73,13 +79,13 @@ class TemporalPlanPipeline:
             cached_semantic_events = self._file_manager.load_cached_semantic_events(timeline)
             if cached_semantic_events:
                 logger.info(
-                    "Loaded %d semantic events from cache for scene_id=%s",
+                    "Stage 0/5 [semantic] loaded %d semantic events from cache for scene_id=%s",
                     len(cached_semantic_events),
                     timeline.scene_id,
                 )
                 timeline.semantic_events = cached_semantic_events
             else:
-                logger.info("Interpreting semantic timeline events from raw event layer...")
+                logger.info("Stage 0/5 [semantic] interpreting raw event layer for scene_id=%s", timeline.scene_id)
                 timeline.semantic_events = self._event_interpreter.interpret(
                     timeline=timeline,
                     intent=intent,
@@ -87,13 +93,23 @@ class TemporalPlanPipeline:
                 )
                 if timeline.semantic_events:
                     self._file_manager.save_cached_semantic_events(timeline, timeline.semantic_events)
+                    logger.info(
+                        "Stage 0/5 [semantic] produced %d semantic events for scene_id=%s",
+                        len(timeline.semantic_events),
+                        timeline.scene_id,
+                    )
 
         # Step 1: Temporal abstraction
-        logger.info("Building temporal cinematic scene abstraction...")
+        logger.info("Stage 1/5 [abstraction] building temporal cinematic abstraction...")
         temporal_cinematic = self._abstractor.abstract(timeline)
+        logger.info(
+            "Stage 1/5 [abstraction] completed for scene_id=%s replay_desc_chars=%d",
+            timeline.scene_id,
+            len(temporal_cinematic.replay_description),
+        )
 
         # Step 2: Multi-pass LLM orchestration
-        logger.info("Running multi-pass LLM orchestration (intent: %s)...", intent)
+        logger.info("Stage 2/5 [orchestration] running multi-pass planner...")
         requested_policy = (director_hint or "auto").strip().lower()
         provided_policy_notes = (director_notes or "").strip()
         directing_plan, pass_artifacts, selected_policy, policy_rationale = self._orchestrator.orchestrate(
@@ -102,22 +118,47 @@ class TemporalPlanPipeline:
             intent,
             style_profile=requested_policy,
             style_brief=provided_policy_notes,
+            planning_mode=planning_mode,
+        )
+        logger.info(
+            "Stage 2/5 [orchestration] completed plan_id=%s policy=%s shots=%d artifacts=%d",
+            directing_plan.plan_id,
+            selected_policy,
+            len(directing_plan.shots),
+            len(pass_artifacts),
         )
 
         # Step 3: Validate directing plan
-        logger.info("Validating temporal directing plan...")
+        logger.info("Stage 3/5 [directing-validation] validating plan_id=%s", directing_plan.plan_id)
         dp_report = self._validator.validate_temporal_directing_plan(
             directing_plan, timeline
         )
+        logger.info(
+            "Stage 3/5 [directing-validation] completed valid=%s errors=%d warnings=%d",
+            dp_report.is_valid,
+            len(dp_report.errors),
+            len(dp_report.warnings),
+        )
 
         # Step 4: Solve temporal trajectories
-        logger.info("Solving temporal trajectories...")
+        logger.info("Stage 4/5 [trajectory] solving trajectories for plan_id=%s", directing_plan.plan_id)
         trajectory_plan = self._solver.solve(directing_plan, timeline)
+        logger.info(
+            "Stage 4/5 [trajectory] completed trajectory_id=%s trajectories=%d",
+            trajectory_plan.plan_id,
+            len(trajectory_plan.trajectories),
+        )
 
         # Step 5: Validate trajectory plan
-        logger.info("Validating temporal trajectory plan...")
+        logger.info("Stage 5/5 [trajectory-validation] validating trajectory_id=%s", trajectory_plan.plan_id)
         tp_report = self._validator.validate_temporal_trajectory_plan(
             trajectory_plan, directing_plan, timeline
+        )
+        logger.info(
+            "Stage 5/5 [trajectory-validation] completed valid=%s errors=%d warnings=%d",
+            tp_report.is_valid,
+            len(tp_report.errors),
+            len(tp_report.warnings),
         )
 
         # Merge reports
@@ -135,6 +176,14 @@ class TemporalPlanPipeline:
             self._file_manager.save_validation_report(combined_report, prefix)
             self._file_manager.save_pass_artifacts(pass_artifacts, prefix)
             logger.info("All temporal outputs saved with prefix: %s", prefix)
+
+        logger.info(
+            "Temporal pipeline finished for scene_id=%s plan_valid=%s total_errors=%d total_warnings=%d",
+            timeline.scene_id,
+            combined_report.is_valid,
+            len(combined_report.errors),
+            len(combined_report.warnings),
+        )
 
         return TemporalPipelineResult(
             timeline=timeline,

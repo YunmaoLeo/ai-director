@@ -9,8 +9,8 @@
 
 ### 2. Run the Workflow
 1. **Enter Play Mode** (Ctrl+P / Cmd+P).
-2. The two cars begin moving along their waypoint loops automatically.
-3. Use the on-screen UI buttons (top-left corner):
+2. The two cars stay still until you click **Start Recording**.
+3. Use the on-screen responsive control panel. The timeline cache now shows save timestamps and keeps the newest takes at the top.
 
 | Button | Action |
 |---|---|
@@ -31,14 +31,8 @@
 Main orchestrator. Attach to a single GameObject along with SceneRecorder, DirectorApiClient, and CinematicPlayer.
 - **Intent**: The directing prompt sent to the backend (editable in Inspector).
 - **Save Debug Files**: When enabled, saves last request/response JSON to `Application.persistentDataPath`.
-- **Auto Polish Visuals**: Adds/updates runtime materials, lighting, and backdrop to keep demos presentation-ready.
 - **Reset Actors Before Recording**: Resets all waypoint followers to deterministic start positions for each take.
-
-### DemoVisualPolish
-Optional runtime styling component for demo quality.
-- Applies distinct red/blue vehicle palettes and upgraded environment materials.
-- Adds simple backdrop geometry when scene is sparse.
-- Tunes lighting, fog, and reflection probe defaults.
+- **Timeline Cache Panel**: Displays cached takes by save date/time, sorted newest-first, with one-click loading.
 
 ### AutomatedDemoRunner
 Optional runtime verifier for unattended testing.

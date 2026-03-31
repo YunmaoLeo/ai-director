@@ -9,6 +9,16 @@ namespace DirectorRuntime
     /// </summary>
     public class SceneRecorder : MonoBehaviour
     {
+        [System.Serializable]
+        public class CachedTimelineInfo
+        {
+            public string filePath;
+            public string fileName;
+            public string displayName;
+            public string relativeAge;
+            public long lastWriteTicks;
+        }
+
         [Header("Recording Settings")]
         [Tooltip("Samples per second during recording.")]
         public float sampleRate = 10f;
@@ -123,15 +133,17 @@ namespace DirectorRuntime
                     name = actor.actorName,
                     category = actor.category,
                     importance = actor.importance,
-                    tags = new List<string>(actor.tags)
+                    tags = new List<string>(actor.tags),
+                    position = new float[] { actor.transform.position.x, actor.transform.position.y, actor.transform.position.z }
                 };
+
+                var actorForward = actor.transform.forward;
+                so.forward = new float[] { actorForward.x, actorForward.y, actorForward.z };
 
                 if (actor.recordedSnapshots.Count > 0)
                 {
                     var first = actor.recordedSnapshots[0];
                     so.position = new float[] { first.position.x, first.position.y, first.position.z };
-                    var fwd = actor.transform.forward;
-                    so.forward = new float[] { fwd.x, fwd.y, fwd.z };
                 }
                 var sz = actor.GetSize();
                 so.size = new float[] { sz.x, sz.y, sz.z };
@@ -262,6 +274,7 @@ namespace DirectorRuntime
         {
             var lower = (go != null ? go.name : "environment").ToLowerInvariant();
             bool isGround = lower.Contains("ground") || lower.Contains("floor") || lower.Contains("track") || lower.Contains("road");
+            Vector3 forward = go != null ? go.transform.forward : Vector3.forward;
 
             return new SceneObject
             {
@@ -270,7 +283,7 @@ namespace DirectorRuntime
                 category = isGround ? "ground" : "architectural",
                 position = new[] { b.center.x, b.center.y, b.center.z },
                 size = new[] { Mathf.Max(b.size.x, 0.1f), Mathf.Max(b.size.y, 0.1f), Mathf.Max(b.size.z, 0.1f) },
-                forward = null,
+                forward = new[] { forward.x, forward.y, forward.z },
                 importance = 0.15f,
                 tags = new List<string> { "environment", isGround ? "ground_plane" : "structure" }
             };
@@ -370,10 +383,25 @@ namespace DirectorRuntime
             lastTimeline = loaded;
             lastTimelineJson = json;
             RecordingDuration = loaded.time_span != null ? loaded.time_span.duration : 0;
+            int hydratedActors = HydrateReplayBuffersFromTimeline(loaded);
             Debug.Log($"[SceneRecorder] Timeline loaded from {path}. " +
                       $"SceneId: {loaded.scene_id}, Duration: {RecordingDuration:F2}s, " +
-                      $"Objects: {loaded.objects_static.Count}, Tracks: {loaded.object_tracks.Count}");
+                      $"Objects: {loaded.objects_static.Count}, Tracks: {loaded.object_tracks.Count}, " +
+                      $"HydratedActors: {hydratedActors}");
             return true;
+        }
+
+        public int AdoptTimeline(SceneTimelineData timeline, string timelineJson = null)
+        {
+            if (timeline == null)
+                return 0;
+
+            lastTimeline = timeline;
+            lastTimelineJson = string.IsNullOrEmpty(timelineJson)
+                ? JsonUtility.ToJson(timeline, true)
+                : timelineJson;
+            RecordingDuration = timeline.time_span != null ? timeline.time_span.duration : 0f;
+            return HydrateReplayBuffersFromTimeline(timeline);
         }
 
         /// <summary>
@@ -479,18 +507,96 @@ namespace DirectorRuntime
             return last;
         }
 
+        private int HydrateReplayBuffersFromTimeline(SceneTimelineData timeline)
+        {
+            if (timeline == null || timeline.object_tracks == null)
+                return 0;
+
+            var actors = FindObjectsByType<ReplayableActor>(FindObjectsSortMode.None);
+            var actorMap = new Dictionary<string, ReplayableActor>();
+            foreach (var actor in actors)
+            {
+                if (!string.IsNullOrEmpty(actor.actorId))
+                    actorMap[actor.actorId] = actor;
+            }
+
+            int hydrated = 0;
+            foreach (var track in timeline.object_tracks)
+            {
+                if (track == null || string.IsNullOrEmpty(track.object_id) || track.samples == null || track.samples.Count == 0)
+                    continue;
+                if (!actorMap.TryGetValue(track.object_id, out var actor))
+                    continue;
+
+                actor.recordedSnapshots.Clear();
+                for (int i = 0; i < track.samples.Count; i++)
+                {
+                    var sample = track.samples[i];
+                    actor.recordedSnapshots.Add(new ReplayableActor.Snapshot
+                    {
+                        time = sample.timestamp,
+                        position = ToVector3(sample.position, actor.transform.position),
+                        rotation = Quaternion.Euler(ToVector3(sample.rotation, actor.transform.eulerAngles)),
+                        velocity = ToVector3(sample.velocity, Vector3.zero),
+                        visible = sample.visible
+                    });
+                }
+
+                hydrated++;
+            }
+
+            return hydrated;
+        }
+
+        private static Vector3 ToVector3(float[] values, Vector3 fallback)
+        {
+            if (values == null || values.Length < 3)
+                return fallback;
+
+            return new Vector3(values[0], values[1], values[2]);
+        }
+
         /// <summary>
-        /// Returns file names of all cached timelines in the cache directory.
+        /// Returns cached timelines sorted by newest first with UI-friendly labels.
         /// </summary>
-        public string[] ListCachedTimelines()
+        public CachedTimelineInfo[] ListCachedTimelines()
         {
             string dir = GetCacheRoot();
-            if (!System.IO.Directory.Exists(dir)) return new string[0];
+            if (!System.IO.Directory.Exists(dir)) return new CachedTimelineInfo[0];
+
             var files = System.IO.Directory.GetFiles(dir, "timeline_*.json");
-            var names = new string[files.Length];
+            var entries = new CachedTimelineInfo[files.Length];
+
             for (int i = 0; i < files.Length; i++)
-                names[i] = System.IO.Path.GetFileName(files[i]);
-            return names;
+            {
+                string filePath = files[i];
+                string fileName = System.IO.Path.GetFileName(filePath);
+                var lastWrite = System.IO.File.GetLastWriteTime(filePath);
+
+                entries[i] = new CachedTimelineInfo
+                {
+                    filePath = filePath,
+                    fileName = fileName,
+                    displayName = lastWrite.ToString("yyyy-MM-dd HH:mm:ss"),
+                    relativeAge = FormatRelativeAge(lastWrite),
+                    lastWriteTicks = lastWrite.Ticks
+                };
+            }
+
+            System.Array.Sort(entries, (a, b) => b.lastWriteTicks.CompareTo(a.lastWriteTicks));
+            return entries;
+        }
+
+        private static string FormatRelativeAge(System.DateTime timestamp)
+        {
+            var delta = System.DateTime.Now - timestamp;
+            if (delta.TotalSeconds < 60)
+                return "just now";
+            if (delta.TotalMinutes < 60)
+                return $"{Mathf.Max(1, Mathf.FloorToInt((float)delta.TotalMinutes))} min ago";
+            if (delta.TotalHours < 24)
+                return $"{Mathf.Max(1, Mathf.FloorToInt((float)delta.TotalHours))} hr ago";
+            return $"{Mathf.Max(1, Mathf.FloorToInt((float)delta.TotalDays))} day ago";
         }
     }
 }

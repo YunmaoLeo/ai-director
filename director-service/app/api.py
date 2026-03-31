@@ -16,8 +16,10 @@ from app.services.cinematic_style import list_style_profiles
 from app.services.file_manager import FileManager
 from app.services.llm_client import resolve_openai_chat_model, recommended_openai_chat_models
 from app.utils.json_utils import load_json, pydantic_to_json
+from app.utils.logger import get_logger
 
 api_app = FastAPI(title="Director Service API", version="0.1.0")
+logger = get_logger(__name__)
 
 api_app.add_middleware(
     CORSMiddleware,
@@ -273,6 +275,7 @@ class TemporalGenerateRequest(BaseModel):
     scene_timeline: dict[str, Any]
     llm_provider: str | None = None
     llm_model: str | None = None
+    planning_mode: str | None = "freeform_llm"
     director_hint: str | None = "auto"
     director_notes: str | None = None
     # Backward-compat fields (deprecated)
@@ -291,6 +294,7 @@ class TemporalGenerateResponse(BaseModel):
     intent: str | None = None
     llm_provider: str | None = None
     llm_model: str | None = None
+    planning_mode: str | None = None
     director_hint: str | None = None
     director_policy: str | None = None
     director_rationale: str | None = None
@@ -314,6 +318,7 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
     llm_provider = req.llm_provider or settings.llm_provider
     llm_model_requested = req.llm_model or settings.llm_model
     llm_model = resolve_openai_chat_model(llm_model_requested) if llm_provider == "openai" else llm_model_requested
+    planning_mode = (req.planning_mode or "freeform_llm").strip().lower()
 
     pipeline = TemporalPlanPipeline(
         llm_provider=llm_provider,
@@ -334,8 +339,17 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
             prefix=prefix,
             director_hint=requested_hint,
             director_notes=requested_notes,
+            planning_mode=planning_mode,
         )
     except Exception as e:
+        logger.exception(
+            "Temporal generate failed for scene_id=%s provider=%s model=%s planning_mode=%s hint=%s",
+            req.scene_id,
+            llm_provider,
+            llm_model,
+            planning_mode,
+            requested_hint,
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
     metadata = {
@@ -343,6 +357,7 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
         "intent": req.intent,
         "llm_provider": llm_provider,
         "llm_model": llm_model,
+        "planning_mode": planning_mode,
         "director_hint": requested_hint,
         "director_policy": result.director_policy,
         "director_rationale": result.director_rationale,
@@ -367,6 +382,7 @@ def generate_temporal_plan(req: TemporalGenerateRequest):
         intent=req.intent,
         llm_provider=llm_provider,
         llm_model=llm_model,
+        planning_mode=planning_mode,
         director_hint=requested_hint,
         director_policy=result.director_policy,
         director_rationale=result.director_rationale,

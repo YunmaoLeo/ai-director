@@ -64,6 +64,8 @@ _FOV_MAP: dict[str, float] = {
     "reveal": 55.0,
 }
 
+_KNOWN_MOVEMENTS = {"static", "slow_forward", "slow_backward", "lateral_slide", "arc", "pan", "orbit"}
+
 _SAMPLE_RATE = 10.0  # Hz
 
 _TRANSITION_HARD_CUTS = {"cut", "hard_cut", "flash_cut"}
@@ -122,10 +124,9 @@ class TemporalTrajectorySolver:
         """Solve a single temporal shot trajectory."""
         duration = shot.time_end - shot.time_start
         num_samples = max(2, int(duration * _SAMPLE_RATE))
-        base_fov = _FOV_MAP.get(shot.shot_type, 55.0)
-        height = _SHOT_HEIGHTS.get(shot.shot_type, 1.5)
-        dist_min, dist_max = _SHOT_DISTANCES.get(shot.shot_type, (2.0, 4.0))
-        dist = (dist_min + dist_max) / 2
+        base_fov = self._resolve_base_fov(shot)
+        height = self._resolve_camera_height(shot, timeline)
+        dist = self._resolve_camera_distance(shot, timeline)
         event_context = self._derive_shot_event_context(shot, timeline)
 
         # Generate raw camera positions at each timestep
@@ -144,7 +145,7 @@ class TemporalTrajectorySolver:
             subject_pos = self._get_subject_position_at_time(
                 shot.subject, timestamp, timeline, tracks_by_id, objects_by_id
             )
-            look_at = (subject_pos[0], subject_pos[1] + 0.5, subject_pos[2])
+            look_at = self._resolve_look_at(shot, subject_pos)
             look_at, dist_scale = self._apply_event_aware_framing(
                 timestamp=timestamp,
                 base_look_at=look_at,
@@ -192,9 +193,10 @@ class TemporalTrajectorySolver:
 
         # Determine path type
         path_type = PathType.bezier
-        if shot.movement in ("static", "pan"):
+        solver_movement = self._resolve_solver_movement(shot)
+        if solver_movement in ("static", "pan"):
             path_type = PathType.linear
-        elif shot.movement in ("arc", "orbit"):
+        elif solver_movement in ("arc", "orbit"):
             path_type = PathType.arc
 
         return TemporalShotTrajectory(
@@ -362,10 +364,28 @@ class TemporalTrajectorySolver:
         else:
             dx, dz = dx / length, dz / length
 
-        movement = shot.movement
+        movement = self._resolve_solver_movement(shot)
         height_value = height
         if shot.pacing == "dramatic" and movement not in ("static", "pan"):
             height_value += 0.06 * math.sin(t_frac * math.pi * 2.0)
+
+        if self._constraint_bool(shot, "overhead") or self._constraint_bool(shot, "top_down"):
+            spin = self._constraint_float(shot, "orbit_arc_degrees", default=150.0)
+            radians = math.radians(spin)
+            base_angle = math.atan2(dz, dx)
+            angle = base_angle - radians / 2 + radians * motion_t
+            overhead_dist = max(0.3, self._constraint_float(shot, "overhead_radius", default=dist * 0.35))
+            x = look_at[0] + overhead_dist * math.cos(angle)
+            z = look_at[2] + overhead_dist * math.sin(angle)
+            return (x, height_value, z)
+
+        camera_offset = self._constraint_vec3(shot, "camera_offset")
+        if camera_offset is not None:
+            return (
+                look_at[0] + camera_offset[0],
+                look_at[1] + camera_offset[1],
+                look_at[2] + camera_offset[2],
+            )
 
         if movement == "static":
             x = look_at[0] + dx * dist
@@ -468,6 +488,8 @@ class TemporalTrajectorySolver:
         elif movement in ("lateral_slide", "pan"):
             fov += 0.8 * math.sin(2.0 * math.pi * motion_t)
 
+        fov = self._constraint_float(shot, "fov", default=fov)
+
         transition = (shot.transition_in or "cut").lower()
         if transition in {"flash_cut", "whip", "hard_cut"}:
             window = 0.1 if transition == "flash_cut" else (0.14 if transition == "whip" else 0.08)
@@ -481,6 +503,150 @@ class TemporalTrajectorySolver:
                 fov += (1.0 - (t_frac / window)) * impulse
 
         return float(max(28.0, min(95.0, fov)))
+
+    def _resolve_base_fov(self, shot: TemporalShot) -> float:
+        default = _FOV_MAP.get(shot.shot_type, 55.0)
+        if self._constraint_bool(shot, "overhead") or self._constraint_bool(shot, "top_down"):
+            default = max(default, 68.0)
+        return self._constraint_float(shot, "fov", default=default)
+
+    def _resolve_camera_height(self, shot: TemporalShot, timeline: SceneTimeline) -> float:
+        default = _SHOT_HEIGHTS.get(shot.shot_type, 1.5)
+        keywords = " ".join([
+            shot.shot_type or "",
+            shot.movement or "",
+            shot.goal or "",
+            shot.rationale or "",
+            str(self._constraint_value(shot, "vantage") or ""),
+            str(self._constraint_value(shot, "camera_style") or ""),
+        ]).lower()
+        if any(token in keywords for token in ("helicopter", "drone", "aerial", "bird", "overhead", "top down", "top-down", "high angle")):
+            default = max(default, min(12.0, max(timeline.bounds.height * 0.85, 6.0)))
+        if str(shot.constraints.get("height_bias", "")).lower() in {"high", "very_high", "aerial"}:
+            default = max(default, min(12.0, max(timeline.bounds.height * 0.8, 5.0)))
+        return self._constraint_float(shot, "camera_height", default=default)
+
+    def _resolve_camera_distance(self, shot: TemporalShot, timeline: SceneTimeline) -> float:
+        dist_min, dist_max = _SHOT_DISTANCES.get(shot.shot_type, (2.0, 4.0))
+        default = (dist_min + dist_max) / 2
+        vantage = str(self._constraint_value(shot, "vantage") or "").lower()
+        if self._constraint_bool(shot, "overhead") or self._constraint_bool(shot, "top_down") or vantage in {"overhead", "aerial", "top_down"}:
+            default *= 0.5
+        distance = self._constraint_float(shot, "camera_distance", default=default)
+        distance_scale = self._constraint_float(shot, "distance_scale", default=1.0)
+        return max(0.25, distance * distance_scale)
+
+    def _resolve_look_at(self, shot: TemporalShot, subject_pos: Vec3) -> Vec3:
+        base = (subject_pos[0], subject_pos[1] + 0.5, subject_pos[2])
+        look_offset = self._constraint_vec3(shot, "look_at_offset")
+        if look_offset is None:
+            look_offset = self._constraint_vec3(shot, "look_offset")
+        if look_offset is None:
+            return base
+        return (
+            base[0] + look_offset[0],
+            base[1] + look_offset[1],
+            base[2] + look_offset[2],
+        )
+
+    def _resolve_solver_movement(self, shot: TemporalShot) -> str:
+        movement = (shot.movement or "").strip().lower()
+        if movement in _KNOWN_MOVEMENTS:
+            return movement
+        dsl = str(self._constraint_value(shot, "dsl") or "").strip().lower()
+        dsl_map = {
+            "aerial_follow": "slow_forward",
+            "top_lock": "orbit",
+            "helicopter_orbit": "orbit",
+            "parallel_strafe": "lateral_slide",
+            "lead_chase": "slow_forward",
+            "tail_chase": "slow_forward",
+            "geo_reset": "static",
+            "apex_orbit": "orbit",
+            "impact_push": "slow_forward",
+            "retreat_reveal": "slow_backward",
+            "sentinel_watch": "static",
+            "ground_skimmer": "slow_forward",
+            "roofline_shadow": "slow_forward",
+            "intercept_arc": "arc",
+            "pair_lock": "orbit",
+            "finish_drop": "slow_forward",
+        }
+        if dsl in dsl_map:
+            return dsl_map[dsl]
+        if any(token in movement for token in ("helicopter", "drone", "aerial", "fly", "glide")):
+            if any(token in movement for token in ("orbit", "circle", "arc")):
+                return "orbit"
+            return "slow_forward"
+        if any(token in movement for token in ("track", "follow", "chase", "push")):
+            return "slow_forward"
+        if any(token in movement for token in ("pull", "retreat")):
+            return "slow_backward"
+        if any(token in movement for token in ("slide", "strafe")):
+            return "lateral_slide"
+        if any(token in movement for token in ("arc", "circle", "wrap")):
+            return "arc"
+        if any(token in movement for token in ("pan", "sweep")):
+            return "pan"
+        return "slow_forward"
+
+    def _constraint_float(self, shot: TemporalShot, key: str, default: float) -> float:
+        value = self._constraint_value(shot, key)
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return default
+        return default
+
+    def _constraint_bool(self, shot: TemporalShot, key: str) -> bool:
+        value = self._constraint_value(shot, key)
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return False
+
+    def _constraint_vec3(self, shot: TemporalShot, key: str) -> Vec3 | None:
+        value = self._constraint_value(shot, key)
+        if isinstance(value, (list, tuple)) and len(value) == 3:
+            try:
+                return (float(value[0]), float(value[1]), float(value[2]))
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def _constraint_value(self, shot: TemporalShot, key: str) -> Any:
+        overrides = self._dsl_overrides(shot)
+        if key in shot.constraints:
+            return shot.constraints.get(key)
+        return overrides.get(key)
+
+    def _dsl_overrides(self, shot: TemporalShot) -> dict[str, Any]:
+        dsl = str(shot.constraints.get("dsl", "")).strip().lower()
+        if not dsl:
+            return {}
+        presets: dict[str, dict[str, Any]] = {
+            "aerial_follow": {"vantage": "aerial", "height_bias": "aerial", "camera_height": 8.0, "camera_distance": 2.0, "fov": 68.0},
+            "top_lock": {"vantage": "overhead", "overhead": True, "top_down": True, "camera_height": 10.0, "overhead_radius": 0.8, "fov": 72.0},
+            "helicopter_orbit": {"vantage": "aerial", "overhead": True, "camera_height": 9.0, "overhead_radius": 1.6, "orbit_arc_degrees": 210.0, "fov": 70.0},
+            "parallel_strafe": {"vantage": "high_angle", "camera_height": 3.2, "distance_scale": 1.15, "fov": 58.0},
+            "lead_chase": {"camera_distance": 2.4, "look_at_offset": [0.0, 0.2, -0.4], "fov": 62.0},
+            "tail_chase": {"camera_distance": 3.4, "fov": 60.0},
+            "geo_reset": {"vantage": "high_angle", "camera_height": 4.8, "camera_distance": 4.8, "fov": 66.0},
+            "apex_orbit": {"orbit_arc_degrees": 240.0, "camera_distance": 2.3, "fov": 54.0},
+            "impact_push": {"camera_distance": 1.6, "distance_scale": 0.75, "fov": 46.0},
+            "retreat_reveal": {"camera_distance": 5.5, "distance_scale": 1.4, "fov": 68.0},
+            "sentinel_watch": {"vantage": "high_angle", "camera_height": 7.5, "camera_distance": 3.0, "fov": 62.0},
+            "ground_skimmer": {"camera_height": 0.5, "camera_distance": 2.2, "fov": 78.0},
+            "roofline_shadow": {"vantage": "high_angle", "camera_height": 6.2, "camera_offset": [1.8, 5.2, -1.8], "fov": 62.0},
+            "intercept_arc": {"camera_distance": 2.8, "orbit_arc_degrees": 140.0, "fov": 58.0},
+            "pair_lock": {"vantage": "high_angle", "camera_height": 5.2, "camera_distance": 3.6, "fov": 64.0},
+            "finish_drop": {"vantage": "high_angle", "height_bias": "high", "camera_height": 6.8, "camera_distance": 2.6, "fov": 60.0},
+        }
+        return presets.get(dsl, {})
 
     def _apply_temporal_collision_avoidance(
         self,

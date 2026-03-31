@@ -60,7 +60,7 @@ namespace DirectorRuntime
         public float maxSpeedMultiplier = 2.4f;
 
         private float _distance;
-        private bool _active = true;
+        private bool _active;
         private float _currentSpeedMultiplier = 1f;
         private float _currentEffectiveSpeed;
 
@@ -71,8 +71,10 @@ namespace DirectorRuntime
 
         void OnEnable()
         {
-            // Avoid stale disabled state when domain reload is disabled in editor.
-            _active = true;
+            // Always start idle on Play so actors wait for an explicit recording start.
+            _active = false;
+            _currentSpeedMultiplier = 0f;
+            _currentEffectiveSpeed = 0f;
         }
 
         public void SetActive(bool active) => _active = active;

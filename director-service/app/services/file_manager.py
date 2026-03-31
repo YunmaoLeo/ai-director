@@ -268,6 +268,7 @@ class FileManager:
             "intent": metadata.get("intent"),
             "llm_provider": metadata.get("llm_provider"),
             "llm_model": metadata.get("llm_model"),
+            "planning_mode": metadata.get("planning_mode"),
             "director_hint": metadata.get("director_hint"),
             "director_policy": metadata.get("director_policy"),
             "director_rationale": metadata.get("director_rationale"),

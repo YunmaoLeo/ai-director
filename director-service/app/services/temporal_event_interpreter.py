@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from typing import Any
 
 from app.models.scene_timeline import SceneEvent, SceneTimeline, SemanticSceneEvent
@@ -17,6 +18,7 @@ class TemporalEventInterpreter:
 
     def __init__(self, max_semantic_events: int = 12):
         self._max_semantic_events = max(1, max_semantic_events)
+        self._max_prompt_events = max(8, self._max_semantic_events * 2)
 
     def interpret(
         self,
@@ -52,6 +54,7 @@ class TemporalEventInterpreter:
         intent: str,
         raw_events: list[SceneEvent],
     ) -> str:
+        selected_events = self._select_prompt_events(raw_events)
         object_lines = []
         for obj in timeline.objects_static:
             object_lines.append(
@@ -61,7 +64,7 @@ class TemporalEventInterpreter:
             object_lines.append("- none")
 
         event_lines = []
-        for event in raw_events[:50]:
+        for event in selected_events:
             event_lines.append(
                 f"- id={event.event_id}, type={event.event_type}, "
                 f"t={event.timestamp:.2f}, d={event.duration:.2f}, "
@@ -69,6 +72,8 @@ class TemporalEventInterpreter:
             )
         if not event_lines:
             event_lines.append("- none")
+
+        event_count_lines = self._summarize_event_counts(raw_events)
 
         return (
             "Semantic Event Interpretation Task\n\n"
@@ -103,7 +108,9 @@ class TemporalEventInterpreter:
             f"Intent: {intent}\n\n"
             "Objects:\n"
             f"{chr(10).join(object_lines)}\n\n"
-            "Raw Events:\n"
+            "Raw Event Distribution:\n"
+            f"{chr(10).join(event_count_lines)}\n\n"
+            f"Representative Raw Events (selected {len(selected_events)} of {len(raw_events)} after de-noising):\n"
             f"{chr(10).join(event_lines)}\n"
         )
 
@@ -206,8 +213,9 @@ class TemporalEventInterpreter:
             "direction_change": 0.58,
         }
 
+        selected_events = self._select_prompt_events(raw_events)[: self._max_semantic_events]
         result: list[SemanticSceneEvent] = []
-        for index, event in enumerate(raw_events[: self._max_semantic_events]):
+        for index, event in enumerate(selected_events):
             start = self._clamp_time(event.timestamp, timeline)
             end = self._clamp_time(event.timestamp + max(event.duration, 0.05), timeline)
             label = event.event_type.replace("_", " ").strip().title()
@@ -239,6 +247,79 @@ class TemporalEventInterpreter:
             )
 
         return result
+
+    def _select_prompt_events(self, raw_events: list[SceneEvent]) -> list[SceneEvent]:
+        if not raw_events:
+            return []
+
+        collapsed: list[SceneEvent] = []
+        last_signature: tuple[str, tuple[str, ...]] | None = None
+        last_timestamp: float | None = None
+        for event in sorted(raw_events, key=lambda item: (item.timestamp, item.event_id)):
+            signature = (event.event_type, tuple(event.object_ids))
+            dedupe_window = 1.0 if event.event_type == "speed_change" else 0.5
+            if (
+                signature == last_signature
+                and last_timestamp is not None
+                and event.timestamp - last_timestamp < dedupe_window
+            ):
+                continue
+            collapsed.append(event)
+            last_signature = signature
+            last_timestamp = event.timestamp
+
+        if len(collapsed) <= self._max_prompt_events:
+            return collapsed
+
+        priority = {
+            "interaction": 6,
+            "occlusion_start": 5,
+            "occlusion_end": 5,
+            "appear": 4,
+            "disappear": 4,
+            "direction_change": 3,
+            "speed_change": 1,
+        }
+
+        selected: list[SceneEvent] = []
+        seen_ids: set[str] = set()
+
+        def add(event: SceneEvent) -> None:
+            if event.event_id in seen_ids:
+                return
+            selected.append(event)
+            seen_ids.add(event.event_id)
+
+        add(collapsed[0])
+        add(collapsed[-1])
+
+        ranked_middle = sorted(
+            collapsed[1:-1],
+            key=lambda event: (
+                -priority.get(event.event_type, 2),
+                event.timestamp,
+            ),
+        )
+        for event in ranked_middle:
+            if len(selected) >= self._max_prompt_events:
+                break
+            add(event)
+
+        return sorted(selected, key=lambda item: (item.timestamp, item.event_id))
+
+    @staticmethod
+    def _summarize_event_counts(raw_events: list[SceneEvent]) -> list[str]:
+        if not raw_events:
+            return ["- none"]
+
+        counts = Counter(event.event_type for event in raw_events)
+        lines = [f"- total_events: {len(raw_events)}"]
+        for event_type, count in counts.most_common(6):
+            lines.append(f"- {event_type}: {count}")
+        remaining = len(counts) - 6
+        if remaining > 0:
+            lines.append(f"- other_event_types: {remaining}")
+        return lines
 
     @staticmethod
     def _to_float(value: Any, fallback: float) -> float:

@@ -12,6 +12,14 @@ namespace DirectorRuntime
     /// </summary>
     public static class DirectorTemporalSceneAnalyzer
     {
+        const float SpeedChangeMinDelta = 3.5f;
+        const float SpeedChangeMinRelative = 0.45f;
+        const float SpeedChangeMinSpeed = 1.5f;
+        const float SpeedChangeCooldown = 1.0f;
+        const float SpeedChangeStopThreshold = 0.25f;
+        const float SpeedChangeResumeThreshold = 1.0f;
+        const float MinMeaningfulPauseDuration = 0.6f;
+
         // ── Per-actor intermediate analysis ──
 
         public struct ActorProfile
@@ -593,15 +601,25 @@ namespace DirectorRuntime
 
                 // Speed changes with context
                 float prevSpeed = 0;
+                float lastSpeedEventTime = float.NegativeInfinity;
                 for (int i = 1; i < snaps.Count; i++)
                 {
                     float spd = snaps[i].velocity.magnitude;
                     float delta = spd - prevSpeed;
-                    if (Mathf.Abs(delta) > 2f && prevSpeed > 0.1f)
+                    float baseline = Mathf.Max(prevSpeed, spd, prof.averageSpeed, 0.01f);
+                    float relativeDelta = Mathf.Abs(delta) / baseline;
+                    bool hasSignificantDelta = Mathf.Abs(delta) >= SpeedChangeMinDelta;
+                    bool hasSignificantRelativeChange = relativeDelta >= SpeedChangeMinRelative;
+                    bool aboveMeaningfulSpeed = Mathf.Max(prevSpeed, spd) >= SpeedChangeMinSpeed;
+                    bool outsideCooldown = (snaps[i].time - lastSpeedEventTime) >= SpeedChangeCooldown;
+
+                    if (hasSignificantDelta && hasSignificantRelativeChange && aboveMeaningfulSpeed && outsideCooldown)
                     {
                         string spdZone = ClassifySpatialZone(snaps[i].position, sceneCenter);
                         string verb = delta > 0 ? "accelerates" : "decelerates";
-                        string intensity = Mathf.Abs(delta) > 5f ? "sharply" : "gradually";
+                        string intensity = Mathf.Abs(delta) > 6.5f || relativeDelta > 0.85f
+                            ? "sharply"
+                            : "noticeably";
                         events.Add(new SceneEvent
                         {
                             event_id = $"evt_{idx++}",
@@ -612,6 +630,7 @@ namespace DirectorRuntime
                                           $"from {prevSpeed:F1} to {spd:F1} u/s " +
                                           $"in the {spdZone} area."
                         });
+                        lastSpeedEventTime = snaps[i].time;
                     }
                     prevSpeed = spd;
                 }
@@ -647,15 +666,15 @@ namespace DirectorRuntime
                 float stopStart = 0;
                 for (int i = 1; i < snaps.Count; i++)
                 {
-                    bool stopped = snaps[i].velocity.magnitude < 0.3f;
+                    bool stopped = snaps[i].velocity.magnitude < SpeedChangeStopThreshold;
                     if (stopped && !wasStopped)
                     {
                         stopStart = snaps[i].time;
                     }
-                    else if (!stopped && wasStopped)
+                    else if (!stopped && wasStopped && snaps[i].velocity.magnitude > SpeedChangeResumeThreshold)
                     {
                         float dur = snaps[i].time - stopStart;
-                        if (dur > 0.3f) // meaningful pause
+                        if (dur >= MinMeaningfulPauseDuration && (stopStart - lastSpeedEventTime) >= SpeedChangeCooldown)
                         {
                             events.Add(new SceneEvent
                             {
@@ -666,6 +685,7 @@ namespace DirectorRuntime
                                 object_ids = new List<string> { actor.actorId },
                                 description = $"{actor.actorName} pauses for {dur:F1}s before resuming movement."
                             });
+                            lastSpeedEventTime = stopStart;
                         }
                     }
                     wasStopped = stopped;

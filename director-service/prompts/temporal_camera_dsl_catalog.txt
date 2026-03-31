@@ -1,0 +1,131 @@
+Available camera DSL primitives and guidance:
+
+1. `aerial_follow`
+- High moving camera that tracks a subject from above.
+- Best for helicopter/drone pursuit, tactical tracking, route readability.
+- Typical constraints:
+  - `vantage: aerial`
+  - `height_bias: aerial`
+  - `camera_height: 6.0-14.0`
+  - `camera_distance: 1.5-5.0`
+
+2. `top_lock`
+- Nearly top-down lock on subject or pair.
+- Best for surveillance, abstract geometry, race-line readability.
+- Typical constraints:
+  - `overhead: true`
+  - `top_down: true`
+  - `camera_height: 7.0-16.0`
+  - `overhead_radius: 0.3-2.0`
+
+3. `helicopter_orbit`
+- High circular / semi-circular orbit over the subject cluster.
+- Best for showcasing momentum and route shape from altitude.
+- Typical constraints:
+  - `overhead: true`
+  - `camera_height: 6.0-14.0`
+  - `orbit_arc_degrees: 120-260`
+
+4. `parallel_strafe`
+- Side-on tracking that preserves relative speed and duel readability.
+- Best for racing, side-by-side comparison, overtakes.
+- Typical constraints:
+  - `vantage: high_angle` or `grounded`
+  - `distance_scale: 0.9-1.4`
+
+5. `lead_chase`
+- Camera slightly ahead of the subject looking back or across its path.
+- Best for aggressive pursuit and dominance framing.
+- Typical constraints:
+  - `camera_offset`
+  - `look_at_offset`
+  - `fov: 50-75`
+
+6. `tail_chase`
+- Camera trails behind the subject.
+- Best for speed buildup, route commitment, forward momentum.
+- Typical constraints:
+  - `camera_distance: 2.0-7.0`
+  - `fov: 48-72`
+
+7. `geo_reset`
+- Wide or elevated reorientation shot.
+- Best for restoring geography after aggressive editing.
+- Typical constraints:
+  - `vantage: high_angle`
+  - `camera_height: 3.5-8.0`
+
+8. `apex_orbit`
+- Circular emphasis around a climax moment.
+- Best for overtakes, near-collisions, commitment moments.
+- Typical constraints:
+  - `orbit_arc_degrees: 150-320`
+  - `fov: 45-68`
+
+9. `impact_push`
+- Strong push-in or compression into a decisive moment.
+- Best for emotional punctuation and race turning points.
+- Typical constraints:
+  - `camera_distance: 0.8-3.0`
+  - `distance_scale: 0.5-0.95`
+  - `fov: 35-58`
+
+10. `retreat_reveal`
+- Pull back to reveal more context over time.
+- Best for aftermath, scale reveal, route comprehension.
+- Typical constraints:
+  - `camera_distance: 2.0-8.0`
+  - `distance_scale: 1.0-1.8`
+
+11. `sentinel_watch`
+- Static or near-static high watchpoint.
+- Best for detached observation, strategic overview, calm control.
+- Typical constraints:
+  - `camera_height: 5.0-14.0`
+  - `vantage: high_angle`
+
+12. `ground_skimmer`
+- Extremely low camera close to the ground, emphasizing velocity.
+- Best for speed sensation and threat.
+- Typical constraints:
+  - `camera_height: 0.3-1.0`
+  - `fov: 60-85`
+
+13. `roofline_shadow`
+- High diagonal camera shadowing the subject from offset.
+- Best for dramatic tactical pursuit and layered depth.
+- Typical constraints:
+  - `camera_height: 4.0-10.0`
+  - `camera_offset`
+
+14. `intercept_arc`
+- Camera cuts across subject motion instead of simply following it.
+- Best for dynamic angle contrast and aggressive editorial energy.
+- Typical constraints:
+  - `orbit_arc_degrees: 90-180`
+  - `distance_scale: 0.8-1.3`
+
+15. `pair_lock`
+- Camera treats two moving subjects as a coupled unit.
+- Best for duels, rivalries, mirrored motion.
+- Typical constraints:
+  - `vantage: overhead` or `high_angle`
+  - `camera_height: 3.0-10.0`
+
+16. `finish_drop`
+- Elevated opening that descends into the action or compresses toward the finish.
+- Best for finales, endpoint emphasis, route payoff.
+- Typical constraints:
+  - `height_bias: high`
+  - `camera_height: 5.0-12.0`
+  - `distance_scale: 0.8-1.4`
+
+Usage notes:
+- You may invent new DSL labels if needed, but prefer the catalog when one clearly fits.
+- `constraints.dsl` should name the primary camera behavior.
+- Use freeform `shot_type` and `movement` labels alongside the DSL; they do not need to match one-to-one.
+- Strong shots usually combine:
+  - a framing label (`shot_type`)
+  - a motion label (`movement`)
+  - a DSL primitive (`constraints.dsl`)
+  - 2-4 numeric constraints

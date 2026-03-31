@@ -1,0 +1,81 @@
+## Scene Information
+
+Scene: {scene_name} ({scene_type})
+Dimensions: {width}m x {length}m x {height}m
+Time Span: {time_start}s to {time_end}s ({duration}s total)
+
+### Static Objects
+{objects_text}
+
+### Moving Subjects
+{subject_profiles_text}
+
+### Events
+{event_summary}
+
+### Semantic Event Directives (for camera intent)
+{semantic_event_directives_text}
+
+### Occlusion Risks
+{occlusion_risks_text}
+
+### Reveal Opportunities
+{reveal_opportunities_text}
+
+## User Intent
+{intent}
+
+## Beats (from Pass 1)
+{beats_text}
+
+## Camera DSL Catalog
+{camera_dsl_catalog_text}
+
+## Task: Shot Intent Planning in CAMERA DSL Mode
+
+For each beat, define 1-3 specific camera shots. Each shot covers a time window within its beat.
+
+Output a JSON object with:
+- shots: array of shot objects
+
+Each shot must have:
+- shot_id
+- time_start
+- time_end
+- goal
+- subject
+- shot_type
+- movement
+- pacing
+- constraints
+- rationale
+- transition_in
+- beat_id
+
+DSL requirements:
+- In `constraints`, include a primary `dsl` field whenever the shot has a recognizable rig/grammar pattern.
+- Use explicit physical controls in `constraints` whenever they matter:
+  - `camera_height`
+  - `camera_distance`
+  - `distance_scale`
+  - `fov`
+  - `camera_offset`
+  - `look_at_offset`
+  - `overhead`
+  - `top_down`
+  - `height_bias`
+  - `vantage`
+  - `orbit_arc_degrees`
+- If the intent asks for an unusual or strong camera concept, do not leave it implicit. Encode it directly.
+
+Creative guidance:
+- The user's intent is the highest-priority creative instruction.
+- Favor precise, intentional camera systems over generic coverage.
+- Use DSL choices to stabilize quality while still allowing strong variation.
+- Avoid repetitive shot grammar unless the user explicitly wants uniformity.
+- If the user asks for helicopter/drone/surveillance/top-down/high-angle work, make that visible in both naming and constraints.
+- Use `camera_implication` from semantic events to bias DSL choice as well as framing.
+- When action gets hard to read, use one shot to restore geography before escalating again.
+- Let transitions and FOV shifts carry editorial energy, not just movement labels.
+
+Output ONLY valid JSON.

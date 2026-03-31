@@ -9,11 +9,12 @@
 - [ ] Run **AI Director > Setup Demo Scene** from menu bar.
 - [ ] Scene contains: DemoWorld, PathA, PathB, CarA (stylized red), CarB (stylized blue), DirectorController, Main Camera, Directional Light.
 - [ ] Yellow gizmo lines visible in Scene view for both paths.
-- [ ] DirectorController has components: SceneRecorder, DirectorApiClient, CinematicPlayer, DirectorController, DemoVisualPolish.
+- [ ] DirectorController has components: SceneRecorder, DirectorApiClient, CinematicPlayer, DirectorController.
 
 ## Recording
-- [ ] Enter Play Mode. Both cars move along their paths automatically.
+- [ ] Enter Play Mode. Both cars remain still before recording starts.
 - [ ] Click **Start Recording**. Status shows "Recording..." and red timer counts up.
+- [ ] After clicking **Start Recording**, both cars begin moving along their waypoint loops.
 - [ ] Wait 5-10 seconds to capture meaningful motion data.
 - [ ] Click **Stop Recording**. Status shows duration and "Ready to generate."
 - [ ] Console logs show: recording started, recording stopped, timeline built with object/track/event counts.

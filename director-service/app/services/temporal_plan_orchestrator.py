@@ -1,10 +1,11 @@
-"""Multi-pass temporal plan orchestrator.
+"""Temporal plan orchestrator.
 
-Runs a 4-step planning flow:
+Runs a 3-pass planning flow:
   Style pass: choose cinematic style profile (auto mode)
   Pass 1: Global Beat Planning (intent + abstraction -> beats)
   Pass 2: Shot Intent Planning (beats + constraints -> shots)
-  Pass 3: Constraint Critique (deterministic checks + LLM review -> revised shots)
+
+Deterministic checks still run for logging/diagnostics, but they do not rewrite shots.
 """
 
 import json
@@ -31,6 +32,23 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _summarize_intent(intent: str, limit: int = 96) -> str:
+    normalized = " ".join((intent or "").split())
+    if len(normalized) <= limit:
+        return normalized
+    return f"{normalized[: limit - 3]}..."
+
+
+def _summarize_issue_counts(issues: dict[str, Any]) -> tuple[int, str]:
+    counts: list[str] = []
+    total = 0
+    for key, value in issues.items():
+        count = len(value) if isinstance(value, list) else 0
+        total += count
+        counts.append(f"{key}={count}")
+    return total, ", ".join(counts)
+
+
 class TemporalPlanOrchestrator:
     def __init__(
         self,
@@ -47,9 +65,17 @@ class TemporalPlanOrchestrator:
         intent: str,
         style_profile: str = "auto",
         style_brief: str = "",
+        planning_mode: str = "freeform_llm",
     ) -> tuple[TemporalDirectingPlan, list[PlanningPassArtifact], str, str]:
         """Run temporal orchestration and return (plan, artifacts, style_profile, style_rationale)."""
         artifacts: list[PlanningPassArtifact] = []
+        logger.info(
+            "Orchestration started for scene_id=%s requested_style=%s planning_mode=%s intent='%s'",
+            timeline.scene_id,
+            style_profile or "auto",
+            planning_mode,
+            _summarize_intent(intent),
+        )
         active_style, active_style_brief, style_rationale, style_artifact = self._resolve_style(
             timeline,
             temporal_cinematic,
@@ -67,18 +93,36 @@ class TemporalPlanOrchestrator:
 
         # Pass 2: Shot Intent Planning
         shots, shot_artifact = self._run_shot_intent_pass(
-            beats, timeline, temporal_cinematic, active_style, active_style_brief
+            beats, timeline, temporal_cinematic, intent, active_style, active_style_brief, planning_mode
         )
         artifacts.append(shot_artifact)
 
-        # Between Pass 2 and 3: Deterministic checks
+        # Deterministic checks remain diagnostic only and do not rewrite shots.
         deterministic_checks = self._run_deterministic_checks(
             shots, timeline
         )
 
-        # Pass 3: Constraint Critique
-        revised_shots, critique_artifact = self._run_constraint_critique_pass(
-            shots, timeline, deterministic_checks, active_style, active_style_brief, temporal_cinematic.replay_description
+        logger.info(
+            "Constraint critique pass disabled for scene_id=%s; preserving Pass 2 shot output",
+            timeline.scene_id,
+        )
+        revised_shots = shots
+        total_issues, issue_summary = _summarize_issue_counts(deterministic_checks)
+        critique_artifact = PlanningPassArtifact(
+            pass_type=PlanningPassType.constraint_critique,
+            pass_index=3,
+            input_summary=(
+                "Critique pass disabled; deterministic checks are advisory only. "
+                f"issues={total_issues} ({issue_summary})"
+            ),
+            output_raw="",
+            output_parsed={
+                "enabled": False,
+                "deterministic_checks": deterministic_checks,
+                "shots": [s.model_dump(mode="json") for s in shots],
+            },
+            duration_ms=0,
+            success=True,
         )
         artifacts.append(critique_artifact)
 
@@ -96,6 +140,15 @@ class TemporalPlanOrchestrator:
             edit_decision_list=self._build_edit_decision_list(revised_shots),
         )
 
+        logger.info(
+            "Orchestration completed for scene_id=%s plan_id=%s style=%s beats=%d shots=%d",
+            timeline.scene_id,
+            plan.plan_id,
+            active_style,
+            len(beats),
+            len(revised_shots),
+        )
+
         return plan, artifacts, active_style, style_rationale
 
     def _resolve_style(
@@ -107,6 +160,11 @@ class TemporalPlanOrchestrator:
         style_brief: str,
     ) -> tuple[str, str, str, PlanningPassArtifact]:
         requested = (style_profile or "auto").strip().lower()
+        logger.info(
+            "Pass 0/3 [style] starting for scene_id=%s requested_style=%s",
+            timeline.scene_id,
+            requested or "auto",
+        )
         if requested and requested not in ("auto", "llm", "default"):
             profile, brief = build_style_brief(requested, style_brief)
             artifact = PlanningPassArtifact(
@@ -121,6 +179,10 @@ class TemporalPlanOrchestrator:
                 },
                 duration_ms=0,
                 success=True,
+            )
+            logger.info(
+                "Pass 0/3 [style] completed via manual override profile=%s",
+                profile,
             )
             return profile, brief, "Manual style override requested by caller.", artifact
 
@@ -145,6 +207,12 @@ class TemporalPlanOrchestrator:
                 duration_ms=duration_ms,
                 success=True,
             )
+            logger.info(
+                "Pass 0/3 [style] completed in %.0fms profile=%s rationale='%s'",
+                duration_ms,
+                profile,
+                _summarize_intent(rationale, limit=120),
+            )
             return profile, brief, rationale, artifact
         except Exception as e:
             duration_ms = time.time() * 1000 - start_ms
@@ -160,6 +228,11 @@ class TemporalPlanOrchestrator:
                 success=False,
                 error_message=str(e),
             )
+            logger.info(
+                "Pass 0/3 [style] fell back to default in %.0fms profile=%s",
+                duration_ms,
+                profile,
+            )
             return profile, brief, "Fallback to default style due to style pass failure.", artifact
 
     def _run_global_beat_pass(
@@ -171,6 +244,12 @@ class TemporalPlanOrchestrator:
         style_brief: str,
     ) -> tuple[list[Beat], PlanningPassArtifact]:
         """Pass 1: Generate beat timeline from intent + temporal abstraction."""
+        logger.info(
+            "Pass 1/3 [beat] starting for scene_id=%s style=%s replay_desc_chars=%d",
+            timeline.scene_id,
+            style_profile,
+            len(temporal_cinematic.replay_description),
+        )
         sys_prompt, user_prompt = self._prompt_builder.build_global_beat_prompt(
             timeline, temporal_cinematic, intent, style_profile=style_profile, style_brief=style_brief
         )
@@ -181,6 +260,11 @@ class TemporalPlanOrchestrator:
             duration_ms = time.time() * 1000 - start_ms
             data = _parse_json(raw)
             beats = _parse_beats(data, timeline)
+            logger.info(
+                "Pass 1/3 [beat] completed in %.0fms beats=%d",
+                duration_ms,
+                len(beats),
+            )
 
             return beats, PlanningPassArtifact(
                 pass_type=PlanningPassType.global_beat,
@@ -217,18 +301,38 @@ class TemporalPlanOrchestrator:
                 success=False,
                 error_message=str(e),
             )
+            logger.info(
+                "Pass 1/3 [beat] fell back in %.0fms beats=%d",
+                duration_ms,
+                len(fallback_beats),
+            )
 
     def _run_shot_intent_pass(
         self,
         beats: list[Beat],
         timeline: SceneTimeline,
         temporal_cinematic: TemporalCinematicScene,
+        intent: str,
         style_profile: str,
         style_brief: str,
+        planning_mode: str = "freeform_llm",
     ) -> tuple[list[TemporalShot], PlanningPassArtifact]:
         """Pass 2: Generate shots from beats + scene constraints."""
+        logger.info(
+            "Pass 2/3 [shot] starting for scene_id=%s beats=%d style=%s planning_mode=%s",
+            timeline.scene_id,
+            len(beats),
+            style_profile,
+            planning_mode,
+        )
         sys_prompt, user_prompt = self._prompt_builder.build_shot_intent_prompt(
-            beats, timeline, temporal_cinematic, style_profile=style_profile, style_brief=style_brief
+            beats,
+            timeline,
+            temporal_cinematic,
+            intent,
+            style_profile=style_profile,
+            style_brief=style_brief,
+            planning_mode=planning_mode,
         )
 
         start_ms = time.time() * 1000
@@ -237,11 +341,16 @@ class TemporalPlanOrchestrator:
             duration_ms = time.time() * 1000 - start_ms
             data = _parse_json(raw)
             shots = _parse_shots(data, timeline)
+            logger.info(
+                "Pass 2/3 [shot] completed in %.0fms shots=%d",
+                duration_ms,
+                len(shots),
+            )
 
             return shots, PlanningPassArtifact(
                 pass_type=PlanningPassType.shot_intent,
                 pass_index=2,
-                input_summary=f"{len(beats)} beats, style={style_profile}",
+                input_summary=f"{len(beats)} beats, style={style_profile}, planning_mode={planning_mode}",
                 output_raw=raw,
                 output_parsed=data,
                 duration_ms=duration_ms,
@@ -251,10 +360,15 @@ class TemporalPlanOrchestrator:
             duration_ms = time.time() * 1000 - start_ms
             logger.warning("Shot pass failed: %s. Using 3-shot template fallback.", e)
             fallback_shots = _build_fallback_shots(timeline, beats)
+            logger.info(
+                "Pass 2/3 [shot] fell back in %.0fms shots=%d",
+                duration_ms,
+                len(fallback_shots),
+            )
             return fallback_shots, PlanningPassArtifact(
                 pass_type=PlanningPassType.shot_intent,
                 pass_index=2,
-                input_summary=f"{len(beats)} beats, style={style_profile}",
+                input_summary=f"{len(beats)} beats, style={style_profile}, planning_mode={planning_mode}",
                 output_raw=str(e),
                 duration_ms=duration_ms,
                 success=False,
@@ -267,6 +381,11 @@ class TemporalPlanOrchestrator:
         timeline: SceneTimeline,
     ) -> dict[str, Any]:
         """Run deterministic checks between Pass 2 and 3."""
+        logger.info(
+            "Deterministic checks starting for scene_id=%s shots=%d",
+            timeline.scene_id,
+            len(shots),
+        )
         issues: dict[str, list[str]] = {
             "time_coverage": [],
             "subject_availability": [],
@@ -329,18 +448,27 @@ class TemporalPlanOrchestrator:
                     f"Shot {shot.shot_id} duration {dur:.1f}s exceeds 30s"
                 )
 
+        total_issues, issue_summary = _summarize_issue_counts(issues)
+        logger.info(
+            "Deterministic checks completed for scene_id=%s total_issues=%d (%s)",
+            timeline.scene_id,
+            total_issues,
+            issue_summary,
+        )
         return issues
 
     def _run_constraint_critique_pass(
         self,
         shots: list[TemporalShot],
         timeline: SceneTimeline,
+        intent: str,
         deterministic_checks: dict,
         style_profile: str,
         style_brief: str,
         replay_description: str,
     ) -> tuple[list[TemporalShot], PlanningPassArtifact]:
         """Pass 3: LLM reviews + fixes shots based on deterministic checks."""
+        total_issues, issue_summary = _summarize_issue_counts(deterministic_checks)
         # Check if there are any issues
         has_issues = any(
             isinstance(v, list) and len(v) > 0
@@ -349,6 +477,10 @@ class TemporalPlanOrchestrator:
 
         if not has_issues:
             # No issues: skip LLM call, return shots as-is
+            logger.info(
+                "Pass 3/3 [critique] skipped for scene_id=%s because deterministic checks found no issues",
+                timeline.scene_id,
+            )
             return shots, PlanningPassArtifact(
                 pass_type=PlanningPassType.constraint_critique,
                 pass_index=3,
@@ -359,9 +491,17 @@ class TemporalPlanOrchestrator:
                 success=True,
             )
 
+        logger.info(
+            "Pass 3/3 [critique] starting for scene_id=%s shots=%d issues=%d (%s)",
+            timeline.scene_id,
+            len(shots),
+            total_issues,
+            issue_summary,
+        )
         sys_prompt, user_prompt = self._prompt_builder.build_constraint_critique_prompt(
             shots,
             timeline,
+            intent,
             deterministic_checks,
             style_profile=style_profile,
             style_brief=style_brief,
@@ -373,7 +513,12 @@ class TemporalPlanOrchestrator:
             raw = self._llm.generate(sys_prompt, user_prompt)
             duration_ms = time.time() * 1000 - start_ms
             data = _parse_json(raw)
-            revised_shots = _parse_shots(data, timeline)
+            revised_shots = _parse_shots(data, timeline, baseline_shots=shots)
+            logger.info(
+                "Pass 3/3 [critique] completed in %.0fms revised_shots=%d",
+                duration_ms,
+                len(revised_shots),
+            )
 
             return revised_shots, PlanningPassArtifact(
                 pass_type=PlanningPassType.constraint_critique,
@@ -387,6 +532,11 @@ class TemporalPlanOrchestrator:
         except Exception as e:
             duration_ms = time.time() * 1000 - start_ms
             logger.warning("Critique pass failed: %s. Using Pass 2 output.", e)
+            logger.info(
+                "Pass 3/3 [critique] failed in %.0fms; keeping original shots=%d",
+                duration_ms,
+                len(shots),
+            )
             return shots, PlanningPassArtifact(
                 pass_type=PlanningPassType.constraint_critique,
                 pass_index=3,
@@ -472,11 +622,6 @@ def _parse_beats(data: dict, timeline: SceneTimeline) -> list[Beat]:
     return beats
 
 
-_VALID_SHOT_TYPES = {"establishing", "wide", "medium", "close_up", "detail", "reveal"}
-_VALID_MOVEMENTS = {"static", "slow_forward", "slow_backward", "lateral_slide", "arc", "pan", "orbit"}
-_VALID_PACING = {"calm", "steady", "dramatic", "deliberate"}
-_VALID_TRANSITIONS = {"cut", "hard_cut", "flash_cut", "smooth", "dissolve", "match_cut", "whip"}
-
 _TRANSITION_ALIASES = {
     "hardcut": "hard_cut",
     "hard-cut": "hard_cut",
@@ -496,45 +641,81 @@ _TRANSITION_ALIASES = {
 def _normalize_transition(value: str) -> str:
     normalized = value.strip().lower()
     normalized = _TRANSITION_ALIASES.get(normalized, normalized)
-    if normalized not in _VALID_TRANSITIONS:
+    if not normalized:
         return "cut"
     return normalized
 
 
-def _parse_shots(data: dict, timeline: SceneTimeline) -> list[TemporalShot]:
+def _parse_shots(
+    data: dict,
+    timeline: SceneTimeline,
+    baseline_shots: list[TemporalShot] | None = None,
+) -> list[TemporalShot]:
     """Parse temporal shots from LLM response data."""
     raw_shots = data.get("shots", [])
     if not isinstance(raw_shots, list) or not raw_shots:
         raise ValueError("No shots in response")
 
+    baseline_by_id = {shot.shot_id: shot for shot in baseline_shots or []}
     shots: list[TemporalShot] = []
-    for raw in raw_shots:
+    for index, raw in enumerate(raw_shots):
         if not isinstance(raw, dict):
             continue
-        shot_type = str(raw.get("shot_type", "wide")).lower()
-        if shot_type not in _VALID_SHOT_TYPES:
-            shot_type = "wide"
-        movement = str(raw.get("movement", "slow_forward")).lower()
-        if movement not in _VALID_MOVEMENTS:
-            movement = "slow_forward"
-        pacing = str(raw.get("pacing", "steady")).lower()
-        if pacing not in _VALID_PACING:
-            pacing = "steady"
-        transition = _normalize_transition(str(raw.get("transition_in", "cut")))
+        baseline = None
+        raw_shot_id = raw.get("shot_id")
+        if isinstance(raw_shot_id, str):
+            baseline = baseline_by_id.get(raw_shot_id)
+        if baseline is None and baseline_shots and index < len(baseline_shots):
+            baseline = baseline_shots[index]
+
+        shot_type = str(
+            raw.get("shot_type")
+            if raw.get("shot_type") is not None
+            else (baseline.shot_type if baseline else "wide")
+        ).lower()
+
+        movement = str(
+            raw.get("movement")
+            if raw.get("movement") is not None
+            else (baseline.movement if baseline else "slow_forward")
+        ).lower()
+
+        pacing = str(
+            raw.get("pacing")
+            if raw.get("pacing") is not None
+            else (baseline.pacing if baseline else "steady")
+        ).lower()
+
+        transition_source = raw.get("transition_in")
+        if transition_source is None and baseline is not None:
+            transition_source = baseline.transition_in
+        transition = _normalize_transition(str(transition_source or "cut"))
+
+        constraints = raw.get("constraints")
+        if not isinstance(constraints, dict):
+            constraints = dict(baseline.constraints) if baseline else {}
+
+        shot_id = str(raw.get("shot_id") or (baseline.shot_id if baseline else f"shot_{len(shots) + 1}"))
+        time_start = float(raw.get("time_start", baseline.time_start if baseline else timeline.time_span.start))
+        time_end = float(raw.get("time_end", baseline.time_end if baseline else timeline.time_span.end))
+        goal = str(raw.get("goal") if raw.get("goal") is not None else (baseline.goal if baseline else ""))
+        subject = str(raw.get("subject") if raw.get("subject") is not None else (baseline.subject if baseline else "room"))
+        rationale = str(raw.get("rationale") if raw.get("rationale") is not None else (baseline.rationale if baseline else ""))
+        beat_id = str(raw.get("beat_id") if raw.get("beat_id") is not None else (baseline.beat_id if baseline else ""))
 
         shots.append(TemporalShot(
-            shot_id=str(raw.get("shot_id", f"shot_{len(shots) + 1}")),
-            time_start=float(raw.get("time_start", timeline.time_span.start)),
-            time_end=float(raw.get("time_end", timeline.time_span.end)),
-            goal=str(raw.get("goal", "")),
-            subject=str(raw.get("subject", "room")),
+            shot_id=shot_id,
+            time_start=time_start,
+            time_end=time_end,
+            goal=goal,
+            subject=subject,
             shot_type=shot_type,
             movement=movement,
             pacing=pacing,
-            constraints=raw.get("constraints", {}) if isinstance(raw.get("constraints"), dict) else {},
-            rationale=str(raw.get("rationale", "")),
+            constraints=constraints,
+            rationale=rationale,
             transition_in=transition,
-            beat_id=str(raw.get("beat_id", "")),
+            beat_id=beat_id,
         ))
 
     if not shots:

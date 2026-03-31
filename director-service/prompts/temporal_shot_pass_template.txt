@@ -22,6 +22,9 @@ Time Span: {time_start}s to {time_end}s ({duration}s total)
 ### Reveal Opportunities
 {reveal_opportunities_text}
 
+## User Intent
+{intent}
+
 ## Beats (from Pass 1)
 {beats_text}
 
@@ -38,15 +41,17 @@ Each shot must have:
 - time_end: end time in seconds
 - goal: what this shot achieves
 - subject: main subject (must be a valid object id or "room")
-- shot_type: one of the allowed types
-- movement: one of the allowed movement types
-- pacing: one of the allowed pacing values
-- constraints: object with optional fields
+- shot_type: freeform cinematic label that best expresses the framing language
+- movement: freeform movement label that best expresses the camera behavior
+- pacing: freeform pacing label
+- constraints: object with any camera directives needed to realize the shot physically
 - rationale: why this shot is included
 - transition_in: transition from previous shot
 - beat_id: which beat this shot belongs to
 
 Guidelines:
+- The user's intent is the highest-priority creative instruction.
+- If generic cinematic best practices conflict with the user intent, follow the user intent.
 - Shots must stay within their beat's time window
 - Subject must be visible during the shot's time window
 - Avoid shots during high occlusion risk windows, or use them dramatically
@@ -56,21 +61,37 @@ Guidelines:
   - `dramatic_role=develop`: prioritize continuity and readable escalation
   - `dramatic_role=peak`: prioritize decisive framing (tighten emphasis)
   - `dramatic_role=release`: provide aftermath/context reset
-- Let `camera_implication` influence shot_type, movement, and transition choice.
+- Let `camera_implication` influence shot_type, movement, transition choice, and camera geometry.
 - Keep cinematic variety and intention:
   - Avoid repeating identical shot_type + movement combinations too many times in a row
   - Use wide/establishing shots to reset geography after rapid coverage
   - Use close_up/detail at commitment moments (decision, lead change, climax, reveal)
   - During high-speed action, interleave dynamic tracking with at least one readability shot
+- When the intent calls for unusual camera language, encode it explicitly in constraints. Useful keys include:
+  - `camera_height`: absolute camera Y height
+  - `camera_distance`: desired camera distance from subject
+  - `distance_scale`: multiplier on default distance
+  - `fov`: desired field of view
+  - `camera_offset`: explicit `[x, y, z]` offset from the look-at point
+  - `look_at_offset`: explicit `[x, y, z]` offset for framing bias
+  - `overhead`: true/false
+  - `top_down`: true/false
+  - `height_bias`: e.g. `low`, `medium`, `high`, `aerial`
+  - `vantage`: e.g. `grounded`, `high_angle`, `overhead`, `aerial`
+  - `orbit_arc_degrees`: custom orbit span for aerial circling shots
+- If the user asks for helicopter/drone/overhead/top-down coverage, do not translate that into generic ground-level wide shots. Keep the aerial intent explicit in both naming and constraints.
 - Use transition_in intentionally (not all smooth):
   - cut/hard_cut for decisive switch
   - flash_cut for brief impact punctuation
   - smooth/dissolve for continuity
   - match_cut for motion/composition continuity
   - whip for momentum carry
-- Minimum shot duration: 1.5s
-- Total shots should cover the full timeline without large gaps
-- Prefer non-uniform shot durations to create rhythm (unless intent asks uniform pacing)
+- Let intent-specific words materially change coverage:
+  - if intent asks intimate/detail/emotional coverage, bias toward tighter framing and fewer wide resets
+  - if intent asks geography/readability/overview, bias toward wider, clearer staging
+  - if intent asks aggression/speed/chaos, increase kinetic movement and harder transitions
+  - if intent asks restraint/poise/observation, reduce unnecessary movement and transition intensity
+- Prefer non-uniform shot durations to create rhythm unless the user intent strongly asks for uniformity.
 
 Reference shot grammar example (format inspiration only):
 - entering a beat: wide or medium to orient action

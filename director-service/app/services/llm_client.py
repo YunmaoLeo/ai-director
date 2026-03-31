@@ -284,13 +284,15 @@ class OpenAILLMClient(LLMClient):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        request_kwargs = {
+            "model": effective_model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+        }
+        if _openai_chat_model_supports_temperature(effective_model):
+            request_kwargs["temperature"] = 0.7
         try:
-            response = self._client.chat.completions.create(
-                model=effective_model,
-                messages=messages,
-                temperature=0.7,
-                response_format={"type": "json_object"},
-            )
+            response = self._client.chat.completions.create(**request_kwargs)
         except Exception as first_error:
             logger.warning(
                 "Primary chat.completions request failed for model=%s (%s). Retrying with compatible fallback.",
@@ -635,6 +637,12 @@ def resolve_openai_chat_model(model: str) -> str:
         logger.info("Resolved model alias %s -> %s", normalized, resolved)
         return resolved
     return normalized
+
+
+def _openai_chat_model_supports_temperature(model: str) -> bool:
+    normalized = (model or "").strip().lower()
+    # GPT-5 chat-latest family currently rejects non-default temperatures.
+    return not normalized.startswith("gpt-5")
 
 
 def recommended_openai_chat_models() -> list[str]:

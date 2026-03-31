@@ -11,12 +11,16 @@ You are reviewing a set of temporal camera shots for correctness and quality.
 ### Draft Shots
 {shots_text}
 
+### User Intent
+{intent}
+
 ### Deterministic Check Results
 {deterministic_checks_text}
 
 ## Task
 
 Review the shots above and fix any issues found in the deterministic checks.
+Preserve and strengthen the user's intent while fixing issues. Do not normalize the plan back toward generic coverage if the current shots already reflect the requested intent.
 
 Common issues to fix:
 - Shots that reference unavailable subjects during their time window

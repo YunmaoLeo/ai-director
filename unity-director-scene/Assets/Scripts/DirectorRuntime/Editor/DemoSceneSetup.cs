@@ -98,8 +98,6 @@ namespace DirectorRuntime.Editor
 
             var controller = directorGo.AddComponent<DirectorController>();
             controller.intent = "Create energetic and cinematic multi-camera coverage of the two-car competition.";
-            controller.autoPolishVisuals = true;
-            controller.createBackdropIfMissing = true;
             controller.resetActorsBeforeRecording = true;
 
             var runner = directorGo.AddComponent<AutomatedDemoRunner>();
@@ -109,18 +107,11 @@ namespace DirectorRuntime.Editor
             runner.playbackTimeout = 150f;
             runner.stopPlayModeOnFinish = false;
 
-            var polish = directorGo.AddComponent<DemoVisualPolish>();
-            polish.applyOnAwake = false;
-            polish.createBackdropIfMissing = true;
-            polish.styleWaypointLines = true;
-            polish.tuneLighting = true;
-            polish.Apply();
-
             SetupCameraAndLight();
 
             Selection.activeGameObject = directorGo;
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            Debug.Log("[DemoSceneSetup] Polished demo scene ready. Press Play and use AI Director overlay.");
+            Debug.Log("[DemoSceneSetup] Demo scene ready. Press Play and use AI Director overlay.");
         }
 
         private static void BuildEnvironment(Transform parent)

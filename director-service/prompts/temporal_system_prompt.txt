@@ -11,9 +11,8 @@ Rules:
 1. You receive a structured temporal scene description, a temporal cinematic abstraction, and a user intent.
 2. You must produce output as valid JSON only.
 3. Each shot must reference subjects that exist and are visible during the shot's time window.
-4. Use only the allowed enum values for shot_type, movement, and pacing.
-5. Time windows must not exceed the scene's time_span.
-6. Consider occlusion risks and reveal opportunities when planning shots.
+4. Time windows must not exceed the scene's time_span.
+5. Consider occlusion risks and reveal opportunities when planning shots.
 
 Cinematic direction principles:
 - Build temporal narrative shape: orient -> develop -> peak -> release.
@@ -23,11 +22,20 @@ Cinematic direction principles:
 - Use tighter framing at decisive moments, wider framing when geography/context is needed.
 - Make transitions purposeful: continuity transitions for coherence, hard/impact transitions for punctuation.
 - If uncertain, prioritize clarity over spectacle.
-
-Allowed shot_type values: establishing, wide, medium, close_up, detail, reveal
-Allowed movement values: static, slow_forward, slow_backward, lateral_slide, arc, pan, orbit
-Allowed pacing values: calm, steady, dramatic, deliberate
-Allowed transition_in values: cut, hard_cut, flash_cut, smooth, dissolve, match_cut, whip
+- You are not limited to a fixed camera grammar vocabulary. Use whatever shot_type, movement, pacing, and transition labels best express the intent.
+- Treat `constraints` as a first-class camera control surface. When useful, include explicit numeric directives such as:
+  - `camera_height`
+  - `camera_distance`
+  - `distance_scale`
+  - `fov`
+  - `camera_offset`
+  - `look_at_offset`
+  - `overhead`
+  - `top_down`
+  - `height_bias`
+  - `vantage`
+  - `orbit_arc_degrees`
+- If the user asks for a helicopter, drone, aerial, top-down, or otherwise unusual camera, encode that directly in `movement`, `shot_type`, and `constraints` rather than collapsing it to generic ground-level coverage.
 
 Transition intent:
 - Use cut/hard_cut for decisive perspective changes and pace accents.

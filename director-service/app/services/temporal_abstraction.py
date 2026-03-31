@@ -4,8 +4,10 @@ Reuses static SceneAbstractor + AffordanceAnalyzer for spatial aspects,
 then adds temporal-specific analysis layers.
 """
 
+from collections import Counter
+
 from app.models.scene_summary import SceneSummary
-from app.models.scene_timeline import SceneTimeline, ObjectTrack
+from app.models.scene_timeline import SceneTimeline, ObjectTrack, SceneEvent
 from app.models.temporal_cinematic_scene import (
     TemporalCinematicScene,
     SubjectTemporalProfile,
@@ -55,7 +57,7 @@ class TemporalAbstractor:
         occlusion_risks = self._detect_occlusion_risks(timeline)
         reveal_opportunities = self._detect_reveal_opportunities(timeline)
         event_summary = self._summarize_events(timeline)
-        replay_description = self._build_replay_description(timeline, subject_profiles, event_summary)
+        replay_description = self._build_replay_description(timeline, subject_profiles)
 
         return TemporalCinematicScene(
             scene_id=timeline.scene_id,
@@ -306,19 +308,34 @@ class TemporalAbstractor:
 
         lines = [f"Timeline spans {timeline.time_span.duration:.1f}s."]
         if semantic_events:
-            lines.append(f"Semantic event highlights ({len(semantic_events)}):")
-            for event in semantic_events:
+            top_semantic_events = sorted(
+                semantic_events,
+                key=lambda event: (-event.salience, event.time_start, event.semantic_id),
+            )[:6]
+            lines.append(
+                f"Semantic highlights selected for planning ({len(top_semantic_events)} of {len(semantic_events)}):"
+            )
+            for event in sorted(top_semantic_events, key=lambda item: item.time_start):
                 lines.append(
                     f"  - [{event.time_start:.1f}s-{event.time_end:.1f}s] "
                     f"{event.label} "
                     f"(role={event.dramatic_role}, camera={event.camera_implication}): "
                     f"{event.summary}"
                 )
+            omitted = len(semantic_events) - len(top_semantic_events)
+            if omitted > 0:
+                lines.append(f"Additional semantic highlights omitted: {omitted}.")
             if raw_events:
-                lines.append(f"Raw signal events captured: {len(raw_events)}.")
+                lines.append(
+                    f"Underlying raw signal distribution: {self._format_event_type_counts(raw_events)}."
+                )
         else:
-            lines.append(f"Raw timeline events ({len(raw_events)}):")
-            for event in raw_events:
+            lines.append(f"Raw signal distribution: {self._format_event_type_counts(raw_events)}.")
+            representative_events = self._select_representative_raw_events(raw_events, limit=6)
+            lines.append(
+                f"Representative raw events ({len(representative_events)} of {len(raw_events)}):"
+            )
+            for event in representative_events:
                 lines.append(
                     f"  - [{event.timestamp:.1f}s] {event.event_type}: {event.description}"
                 )
@@ -328,7 +345,6 @@ class TemporalAbstractor:
         self,
         timeline: SceneTimeline,
         subject_profiles: list[SubjectTemporalProfile],
-        event_summary: str,
     ) -> str:
         """Build a compact narrative description from timeline replay data."""
         top_subjects = subject_profiles[:3]
@@ -360,7 +376,105 @@ class TemporalAbstractor:
                 else f"Event layers: raw={raw_event_count}."
             ),
             f"Primary temporal subjects: {subjects_text}.",
-            "Event timeline:",
-            event_summary,
         ]
+        if raw_event_count:
+            lines.append(
+                f"Dominant raw signals: {self._format_event_type_counts(timeline.raw_events or timeline.events)}."
+            )
+        if timeline.semantic_events:
+            top_semantic = sorted(
+                timeline.semantic_events,
+                key=lambda event: (-event.salience, event.time_start, event.semantic_id),
+            )[:3]
+            semantic_text = "; ".join(
+                f"{event.label} [{event.time_start:.1f}s-{event.time_end:.1f}s]"
+                for event in sorted(top_semantic, key=lambda item: item.time_start)
+            )
+            lines.append(f"Top semantic moments: {semantic_text}.")
+        else:
+            representative_events = self._select_representative_raw_events(
+                timeline.raw_events or timeline.events,
+                limit=3,
+            )
+            if representative_events:
+                lines.append(
+                    "Representative raw beats: "
+                    + "; ".join(
+                        f"{event.event_type}@{event.timestamp:.1f}s"
+                        for event in representative_events
+                    )
+                    + "."
+                )
         return "\n".join(lines)
+
+    @staticmethod
+    def _format_event_type_counts(raw_events: list[SceneEvent], max_types: int = 5) -> str:
+        if not raw_events:
+            return "none"
+
+        counts = Counter(event.event_type for event in raw_events)
+        parts = [f"{event_type}={count}" for event_type, count in counts.most_common(max_types)]
+        remaining = len(counts) - max_types
+        if remaining > 0:
+            parts.append(f"other_types={remaining}")
+        return ", ".join(parts)
+
+    def _select_representative_raw_events(
+        self,
+        raw_events: list[SceneEvent],
+        limit: int = 6,
+    ) -> list[SceneEvent]:
+        if not raw_events:
+            return []
+
+        priority = {
+            EventType.interaction.value: 6,
+            EventType.occlusion_start.value: 5,
+            EventType.occlusion_end.value: 5,
+            EventType.appear.value: 4,
+            EventType.disappear.value: 4,
+            EventType.direction_change.value: 3,
+            EventType.speed_change.value: 1,
+        }
+
+        collapsed: list[SceneEvent] = []
+        last_signature: tuple[str, tuple[str, ...]] | None = None
+        last_timestamp: float | None = None
+        for event in sorted(raw_events, key=lambda item: (item.timestamp, item.event_id)):
+            signature = (event.event_type, tuple(event.object_ids))
+            dedupe_window = 1.0 if event.event_type == EventType.speed_change.value else 0.5
+            if (
+                signature == last_signature
+                and last_timestamp is not None
+                and event.timestamp - last_timestamp < dedupe_window
+            ):
+                continue
+            collapsed.append(event)
+            last_signature = signature
+            last_timestamp = event.timestamp
+
+        if len(collapsed) <= limit:
+            return collapsed
+
+        selected: list[SceneEvent] = []
+        seen_ids: set[str] = set()
+
+        def add(event: SceneEvent) -> None:
+            if event.event_id in seen_ids:
+                return
+            selected.append(event)
+            seen_ids.add(event.event_id)
+
+        add(collapsed[0])
+        add(collapsed[-1])
+
+        ranked_middle = sorted(
+            collapsed[1:-1],
+            key=lambda event: (-priority.get(event.event_type, 2), event.timestamp),
+        )
+        for event in ranked_middle:
+            if len(selected) >= limit:
+                break
+            add(event)
+
+        return sorted(selected, key=lambda item: (item.timestamp, item.event_id))
