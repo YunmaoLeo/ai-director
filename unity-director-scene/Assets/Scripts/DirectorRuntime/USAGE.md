@@ -145,4 +145,6 @@ The system is scene-agnostic:
 - In **Freeform LLM** mode, the glossary expands the model's vocabulary for prompts like "crane shot", "Steadicam shot", "wide-angle lens", or "fisheye".
 - In **Camera DSL** mode, many glossary concepts map to executable DSL rigs such as `crane_rise`, `handheld_chase`, `steadicam_glide`, `zoom_in_punch`, and `low_angle_hero`.
 - Lens-oriented constraints such as `fov`, `fov_start`, `fov_end`, `dutch`, `focus_distance`, `aperture`, `focal_length`, `lens_shift`, `lens_profile`, and `zoom_profile` are now part of the camera control surface.
-- Unity playback executes these controls with `Cinemachine 3` and URP `Depth Of Field`, so the final cinematic no longer depends only on transform playback.
+- Unity playback executes these controls with `Cinemachine 3` and URP post-processing, so the final cinematic no longer depends only on transform playback.
+- In addition to `Depth Of Field`, the runtime `Global Volume` can now be driven per-shot by LLM-generated trajectory data for `Bloom`, `Vignette`, `Color Adjustments` (`post_exposure`, `saturation`, `contrast`), `Chromatic Aberration`, `Film Grain`, and `Motion Blur`.
+- These post-processing channels use effect-specific interpolation curves during playback, so transitions can feel punchy, soft, or editorially energized instead of always blending linearly.

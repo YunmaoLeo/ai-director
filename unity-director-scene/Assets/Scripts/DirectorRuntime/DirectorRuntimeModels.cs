@@ -250,6 +250,15 @@ namespace DirectorRuntime
         public float aperture = 5.6f;
         public float focal_length = 50f;
         public float[] lens_shift = new float[2] { 0f, 0f };
+        public float bloom_intensity = 0f;
+        public float bloom_threshold = 1f;
+        public float vignette_intensity = 0f;
+        public float post_exposure = 0f;
+        public float saturation = 0f;
+        public float contrast = 0f;
+        public float chromatic_aberration = 0f;
+        public float film_grain_intensity = 0f;
+        public float motion_blur_intensity = 0f;
 
         public Vector3 Position => new Vector3(position[0], position[1], position[2]);
         public Vector3 LookAt => new Vector3(look_at[0], look_at[1], look_at[2]);

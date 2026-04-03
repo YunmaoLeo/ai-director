@@ -210,6 +210,14 @@ class TestTemporalTrajectorySolver:
                         "aperture": 2.0,
                         "focal_length": 85.0,
                         "lens_shift": [0.08, -0.04],
+                        "bloom_intensity": 0.3,
+                        "vignette_intensity": 0.2,
+                        "post_exposure": 0.35,
+                        "saturation": -12.0,
+                        "contrast": 14.0,
+                        "chromatic_aberration": 0.16,
+                        "film_grain_intensity": 0.24,
+                        "motion_blur_intensity": 0.18,
                     },
                 )
             ],
@@ -225,3 +233,11 @@ class TestTemporalTrajectorySolver:
         assert first.aperture == pytest.approx(2.0)
         assert first.focal_length == pytest.approx(85.0)
         assert first.lens_shift == pytest.approx((0.08, -0.04))
+        assert first.bloom_intensity == pytest.approx(0.3)
+        assert first.vignette_intensity == pytest.approx(0.2)
+        assert first.post_exposure == pytest.approx(0.35)
+        assert first.saturation == pytest.approx(-12.0)
+        assert first.contrast == pytest.approx(14.0)
+        assert first.chromatic_aberration == pytest.approx(0.16)
+        assert first.film_grain_intensity == pytest.approx(0.24)
+        assert first.motion_blur_intensity == pytest.approx(0.18)

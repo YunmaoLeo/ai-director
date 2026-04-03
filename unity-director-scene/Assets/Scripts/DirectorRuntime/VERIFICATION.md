@@ -51,6 +51,7 @@
 - [ ] Response contains `temporal_directing_plan` with shots and beats.
 - [ ] Response contains `temporal_trajectory_plan` with trajectories containing timed_points.
 - [ ] Timed points include runtime lens data such as `dutch`, `focus_distance`, `aperture`, `focal_length`, and `lens_shift`.
+- [ ] Timed points include post-processing data such as `bloom_intensity`, `vignette_intensity`, `post_exposure`, `saturation`, `contrast`, `chromatic_aberration`, `film_grain_intensity`, and `motion_blur_intensity`.
 
 ## Error Handling
 - [ ] If backend is offline, clicking Generate Plan shows an error message in the UI status (not a crash).

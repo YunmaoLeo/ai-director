@@ -17,6 +17,15 @@ class TimedTrajectoryPoint(BaseModel):
     aperture: float = 5.6
     focal_length: float = 50.0
     lens_shift: tuple[float, float] = (0.0, 0.0)
+    bloom_intensity: float = 0.0
+    bloom_threshold: float = 1.0
+    vignette_intensity: float = 0.0
+    post_exposure: float = 0.0
+    saturation: float = 0.0
+    contrast: float = 0.0
+    chromatic_aberration: float = 0.0
+    film_grain_intensity: float = 0.0
+    motion_blur_intensity: float = 0.0
 
 
 class TemporalShotTrajectory(BaseModel):

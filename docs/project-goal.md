@@ -105,3 +105,48 @@ The project is no longer centered on static scene-only planning.
 - Generated trajectories vary not only by position/look-at, but also by FOV, Dutch angle, focus distance, aperture, and lens behavior when requested.
 - Unity integration can submit timelines and consume outputs through a documented contract.
 - Iteration can be done quickly from backend/frontend tooling without Unity launch dependency.
+
+---
+
+## 6. Current Implementation Path
+
+The current implementation path in this repo is:
+
+1. **Unity scene layer**
+   - A scene such as `HumanInteractionScene.unity` contains a controllable hero, selected `ReplayableActor` NPCs, a `DirectorController` object, a `GameplayCameraRig`, and a URP `Global Volume`.
+
+2. **Runtime capture**
+   - `SceneRecorder` records all active `ReplayableActor` transforms into `object_tracks`.
+   - It also builds `objects_static` for actors and environment geometry, then derives deterministic `raw_events`.
+
+3. **Planning request**
+   - Unity sends `scene_timeline`, `intent`, `planning_mode`, and optional model/provider overrides through `DirectorApiClient`.
+
+4. **Backend temporal pipeline**
+   - semantic enrichment,
+   - temporal abstraction,
+   - style pass,
+   - beat pass,
+   - shot pass,
+   - deterministic diagnostics,
+   - temporal trajectory solve.
+
+5. **Cinematic output contract**
+   - The resulting `temporal_trajectory_plan` now carries:
+     - position / look-at,
+     - FOV / Dutch / lens state,
+     - focus and depth-of-field values,
+     - post-processing controls for bloom, vignette, color grading, chromatic aberration, film grain, and motion blur.
+
+6. **Unity playback execution**
+   - `CinematicPlayer` replays the recorded actors,
+   - suspends gameplay camera-follow scripts during cinematic playback,
+   - drives the output camera through `Cinemachine`,
+   - applies per-shot URP `Global Volume` interpolation for runtime post-processing.
+
+7. **Iteration loop**
+   - Unity caches timelines and generated shooting plans locally,
+   - backend runs persist artifacts under `outputs/`,
+   - frontend debug tools inspect both the timeline evidence and the solved camera plan.
+
+This is the main implementation path we should continue refining instead of maintaining separate scene-specific camera stacks.

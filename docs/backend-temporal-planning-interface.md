@@ -132,6 +132,15 @@ Trajectory timed points include:
 - `aperture`
 - `focal_length`
 - `lens_shift`
+- `bloom_intensity`
+- `bloom_threshold`
+- `vignette_intensity`
+- `post_exposure`
+- `saturation`
+- `contrast`
+- `chromatic_aberration`
+- `film_grain_intensity`
+- `motion_blur_intensity`
 
 Shot constraints may also include lens-oriented controls such as:
 
@@ -141,6 +150,15 @@ Shot constraints may also include lens-oriented controls such as:
 - `aperture`, `aperture_start`, `aperture_end`
 - `focal_length`, `focal_length_start`, `focal_length_end`
 - `lens_shift`, `lens_shift_start`, `lens_shift_end`
+- `bloom_intensity`, `bloom_intensity_start`, `bloom_intensity_end`
+- `bloom_threshold`, `bloom_threshold_start`, `bloom_threshold_end`
+- `vignette_intensity`, `vignette_intensity_start`, `vignette_intensity_end`
+- `post_exposure`, `post_exposure_start`, `post_exposure_end`
+- `saturation`, `saturation_start`, `saturation_end`
+- `contrast`, `contrast_start`, `contrast_end`
+- `chromatic_aberration`, `chromatic_aberration_start`, `chromatic_aberration_end`
+- `film_grain_intensity`, `film_grain_intensity_start`, `film_grain_intensity_end`
+- `motion_blur_intensity`, `motion_blur_intensity_start`, `motion_blur_intensity_end`
 - `lens_profile`
 - `zoom_profile`
 - `camera_height_start`, `camera_height_end`
@@ -148,7 +166,7 @@ Shot constraints may also include lens-oriented controls such as:
 - `dsl`
 - `film_terms`
 
-Unity playback now consumes these through `Cinemachine` and URP `Depth Of Field`, so the contract no longer stops at camera position and FOV alone.
+Unity playback now consumes these through `Cinemachine` and URP post-processing. That includes `Depth Of Field`, `Bloom`, `Vignette`, `Color Adjustments`, `Chromatic Aberration`, `Film Grain`, and `Motion Blur`, so the contract no longer stops at camera position and FOV alone.
 
 ---
 

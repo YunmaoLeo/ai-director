@@ -143,6 +143,15 @@ class TemporalTrajectorySolver:
         apertures: list[float] = []
         focal_lengths: list[float] = []
         lens_shifts: list[tuple[float, float]] = []
+        bloom_intensities: list[float] = []
+        bloom_thresholds: list[float] = []
+        vignette_intensities: list[float] = []
+        post_exposures: list[float] = []
+        saturations: list[float] = []
+        contrasts: list[float] = []
+        chromatic_aberrations: list[float] = []
+        film_grain_intensities: list[float] = []
+        motion_blur_intensities: list[float] = []
 
         for i in range(num_samples):
             t_frac = i / max(1, num_samples - 1)
@@ -178,6 +187,15 @@ class TemporalTrajectorySolver:
             apertures.append(self._compute_aperture_at_time(shot, motion_t))
             focal_lengths.append(self._compute_focal_length_at_time(shot, fov, motion_t))
             lens_shifts.append(self._compute_lens_shift_at_time(shot, motion_t))
+            bloom_intensities.append(self._compute_bloom_intensity_at_time(shot, motion_t, t_frac))
+            bloom_thresholds.append(self._compute_bloom_threshold_at_time(shot, motion_t))
+            vignette_intensities.append(self._compute_vignette_intensity_at_time(shot, motion_t, t_frac))
+            post_exposures.append(self._compute_post_exposure_at_time(shot, motion_t, t_frac))
+            saturations.append(self._compute_saturation_at_time(shot, motion_t))
+            contrasts.append(self._compute_contrast_at_time(shot, motion_t))
+            chromatic_aberrations.append(self._compute_chromatic_aberration_at_time(shot, motion_t, t_frac))
+            film_grain_intensities.append(self._compute_film_grain_intensity_at_time(shot, motion_t, t_frac))
+            motion_blur_intensities.append(self._compute_motion_blur_intensity_at_time(shot, motion_t, t_frac))
 
         # Apply temporal collision avoidance
         pushed_points = self._apply_temporal_collision_avoidance(
@@ -206,6 +224,15 @@ class TemporalTrajectorySolver:
                 aperture=apertures[i],
                 focal_length=focal_lengths[i],
                 lens_shift=lens_shifts[i],
+                bloom_intensity=bloom_intensities[i],
+                bloom_threshold=bloom_thresholds[i],
+                vignette_intensity=vignette_intensities[i],
+                post_exposure=post_exposures[i],
+                saturation=saturations[i],
+                contrast=contrasts[i],
+                chromatic_aberration=chromatic_aberrations[i],
+                film_grain_intensity=film_grain_intensities[i],
+                motion_blur_intensity=motion_blur_intensities[i],
             ))
 
         # Compute metrics
@@ -647,6 +674,252 @@ class TemporalTrajectorySolver:
             return static_shift
         return (0.0, 0.0)
 
+    def _compute_bloom_intensity_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        transition = (shot.transition_in or "cut").lower()
+        default = 0.0
+        keywords = self._shot_language_blob(shot)
+        if any(token in keywords for token in ("dreamy", "glow", "neon", "halation", "bloom")):
+            default = 0.35
+        if transition in {"flash_cut", "whip"}:
+            default = max(default, 0.45)
+        return self._resolve_effect_scalar(
+            shot,
+            key="bloom_intensity",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="glow",
+            min_value=0.0,
+            max_value=6.0,
+        )
+
+    def _compute_bloom_threshold_at_time(self, shot: TemporalShot, motion_t: float) -> float:
+        threshold = self._resolve_effect_scalar_pair(
+            shot,
+            key="bloom_threshold",
+            motion_t=motion_t,
+            default=1.0,
+            curve="exposure",
+        )
+        return float(max(0.0, min(4.0, threshold)))
+
+    def _compute_vignette_intensity_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        default = 0.0
+        keywords = self._shot_language_blob(shot)
+        transition = (shot.transition_in or "cut").lower()
+        if any(token in keywords for token in ("vignette", "surveillance", "claustrophobic", "intimate")):
+            default = 0.28
+        if transition in {"dissolve", "smooth"}:
+            default = max(default, 0.12)
+        return self._resolve_effect_scalar(
+            shot,
+            key="vignette_intensity",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="vignette",
+            min_value=0.0,
+            max_value=0.65,
+        )
+
+    def _compute_post_exposure_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        default = 0.0
+        transition = (shot.transition_in or "cut").lower()
+        if transition == "flash_cut":
+            default = 0.4
+        elif transition == "dissolve":
+            default = 0.15
+        return self._resolve_effect_scalar(
+            shot,
+            key="post_exposure",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="exposure",
+            min_value=-3.0,
+            max_value=3.0,
+        )
+
+    def _compute_saturation_at_time(self, shot: TemporalShot, motion_t: float) -> float:
+        default = 0.0
+        keywords = self._shot_language_blob(shot)
+        if any(token in keywords for token in ("bleached", "desaturated", "cold")):
+            default = -18.0
+        elif any(token in keywords for token in ("vibrant", "hyperreal", "pop", "saturated")):
+            default = 18.0
+        return self._resolve_effect_scalar_pair(
+            shot,
+            key="saturation",
+            motion_t=motion_t,
+            default=default,
+            curve="grade",
+            min_value=-100.0,
+            max_value=100.0,
+        )
+
+    def _compute_contrast_at_time(self, shot: TemporalShot, motion_t: float) -> float:
+        default = 0.0
+        keywords = self._shot_language_blob(shot)
+        if any(token in keywords for token in ("noir", "hard contrast", "graphic", "punchy")):
+            default = 20.0
+        elif any(token in keywords for token in ("soft", "hazy", "washed")):
+            default = -12.0
+        return self._resolve_effect_scalar_pair(
+            shot,
+            key="contrast",
+            motion_t=motion_t,
+            default=default,
+            curve="grade",
+            min_value=-100.0,
+            max_value=100.0,
+        )
+
+    def _compute_chromatic_aberration_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        default = 0.0
+        transition = (shot.transition_in or "cut").lower()
+        keywords = self._shot_language_blob(shot)
+        if any(token in keywords for token in ("chromatic aberration", "fringe", "distorted", "surveillance")):
+            default = 0.18
+        if transition in {"whip", "flash_cut"}:
+            default = max(default, 0.22)
+        return self._resolve_effect_scalar(
+            shot,
+            key="chromatic_aberration",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="impulse",
+            min_value=0.0,
+            max_value=1.0,
+        )
+
+    def _compute_film_grain_intensity_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        default = 0.0
+        keywords = self._shot_language_blob(shot)
+        if any(token in keywords for token in ("film grain", "gritty", "documentary", "vintage")):
+            default = 0.35
+        return self._resolve_effect_scalar(
+            shot,
+            key="film_grain_intensity",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="texture",
+            min_value=0.0,
+            max_value=1.0,
+        )
+
+    def _compute_motion_blur_intensity_at_time(self, shot: TemporalShot, motion_t: float, t_frac: float) -> float:
+        default = 0.0
+        movement = self._resolve_solver_movement(shot)
+        transition = (shot.transition_in or "cut").lower()
+        if movement in {"slow_forward", "lateral_slide", "arc", "orbit"}:
+            default = 0.18
+        if transition in {"whip", "flash_cut"}:
+            default = max(default, 0.35)
+        return self._resolve_effect_scalar(
+            shot,
+            key="motion_blur_intensity",
+            motion_t=motion_t,
+            t_frac=t_frac,
+            default=default,
+            curve="impulse",
+            min_value=0.0,
+            max_value=1.0,
+        )
+
+    def _resolve_effect_scalar(
+        self,
+        shot: TemporalShot,
+        key: str,
+        motion_t: float,
+        t_frac: float,
+        default: float,
+        curve: str,
+        min_value: float,
+        max_value: float,
+    ) -> float:
+        value = self._resolve_effect_scalar_pair(shot, key, motion_t, default, curve, min_value, max_value)
+        transition = (shot.transition_in or "cut").lower()
+        if transition in {"flash_cut", "whip", "smooth", "dissolve", "match_cut"}:
+            value += self._transition_effect_impulse(key, transition, t_frac)
+        return float(max(min_value, min(max_value, value)))
+
+    def _resolve_effect_scalar_pair(
+        self,
+        shot: TemporalShot,
+        key: str,
+        motion_t: float,
+        default: float,
+        curve: str,
+        min_value: float = -10_000.0,
+        max_value: float = 10_000.0,
+    ) -> float:
+        start_value = self._constraint_optional_float(shot, f"{key}_start")
+        end_value = self._constraint_optional_float(shot, f"{key}_end")
+        static_value = self._constraint_optional_float(shot, key)
+        if start_value is not None or end_value is not None:
+            start = start_value if start_value is not None else (static_value if static_value is not None else default)
+            end = end_value if end_value is not None else (static_value if static_value is not None else default)
+            eased = self._shape_effect_progress(motion_t, curve)
+            value = start + (end - start) * eased
+        elif static_value is not None:
+            value = static_value
+        else:
+            value = default
+        return float(max(min_value, min(max_value, value)))
+
+    def _shape_effect_progress(self, motion_t: float, curve: str) -> float:
+        t = max(0.0, min(1.0, motion_t))
+        profile = (curve or "").strip().lower()
+        if profile == "glow":
+            return math.sqrt(t)
+        if profile == "vignette":
+            return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+        if profile == "exposure":
+            return t * t * (3.0 - 2.0 * t)
+        if profile == "grade":
+            return 0.5 - 0.5 * math.cos(math.pi * t)
+        if profile == "texture":
+            return (0.5 - 0.5 * math.cos(math.pi * t)) ** 0.85
+        if profile == "impulse":
+            return math.sqrt(t)
+        return t
+
+    def _transition_effect_impulse(self, key: str, transition: str, t_frac: float) -> float:
+        if transition == "flash_cut":
+            window = 0.12
+            strength = 1.0 - min(1.0, t_frac / window)
+            return {
+                "bloom_intensity": 0.7 * strength,
+                "post_exposure": 0.55 * strength,
+                "chromatic_aberration": 0.25 * strength,
+                "motion_blur_intensity": 0.3 * strength,
+            }.get(key, 0.0)
+        if transition == "whip":
+            window = 0.16
+            strength = math.sin(min(1.0, t_frac / window) * math.pi)
+            return {
+                "chromatic_aberration": 0.18 * strength,
+                "motion_blur_intensity": 0.28 * strength,
+                "vignette_intensity": 0.08 * strength,
+            }.get(key, 0.0)
+        if transition == "dissolve":
+            window = 0.26
+            strength = 1.0 - min(1.0, t_frac / window)
+            return {
+                "vignette_intensity": 0.05 * strength,
+                "bloom_intensity": 0.08 * strength,
+            }.get(key, 0.0)
+        if transition in {"smooth", "match_cut"}:
+            window = 0.18
+            strength = 1.0 - min(1.0, t_frac / window)
+            return {
+                "motion_blur_intensity": 0.08 * strength,
+                "post_exposure": 0.05 * strength,
+            }.get(key, 0.0)
+        return 0.0
+
     def _resolve_camera_height(self, shot: TemporalShot, timeline: SceneTimeline) -> float:
         default = _SHOT_HEIGHTS.get(shot.shot_type, 1.5)
         keywords = self._shot_language_blob(shot)
@@ -838,15 +1111,15 @@ class TemporalTrajectorySolver:
             "finish_drop": {"vantage": "high_angle", "height_bias": "high", "camera_height": 6.8, "camera_distance": 2.6, "fov": 60.0},
             "crane_rise": {"rig_style": "crane", "camera_height_start": 2.6, "camera_height_end": 7.8, "camera_distance": 3.4, "fov_start": 52.0, "fov_end": 68.0},
             "crane_drop": {"rig_style": "crane", "camera_height_start": 7.2, "camera_height_end": 1.8, "camera_distance": 2.8, "fov_start": 68.0, "fov_end": 48.0, "focus_distance": 7.5},
-            "handheld_chase": {"rig_style": "handheld", "camera_height": 1.35, "camera_distance": 1.9, "lens_profile": "wide_angle", "fov": 74.0, "aperture": 2.8, "focus_distance": 2.3, "dutch": 2.0},
-            "steadicam_glide": {"rig_style": "steadicam", "camera_height": 1.6, "camera_distance": 2.6, "fov": 58.0, "aperture": 4.0, "focus_distance": 3.0},
-            "swish_pan_reveal": {"rig_style": "tripod", "fov_start": 74.0, "fov_end": 66.0, "zoom_profile": "crash_zoom_out"},
-            "zoom_in_punch": {"rig_style": "tripod", "fov_start": 74.0, "fov_end": 42.0, "zoom_profile": "zoom_in", "aperture_start": 5.6, "aperture_end": 2.2},
-            "zoom_out_reveal": {"rig_style": "tripod", "fov_start": 42.0, "fov_end": 76.0, "zoom_profile": "zoom_out", "aperture_start": 2.8, "aperture_end": 8.0},
+            "handheld_chase": {"rig_style": "handheld", "camera_height": 1.35, "camera_distance": 1.9, "lens_profile": "wide_angle", "fov": 74.0, "aperture": 2.8, "focus_distance": 2.3, "dutch": 2.0, "film_grain_intensity": 0.28, "motion_blur_intensity": 0.24, "chromatic_aberration": 0.12},
+            "steadicam_glide": {"rig_style": "steadicam", "camera_height": 1.6, "camera_distance": 2.6, "fov": 58.0, "aperture": 4.0, "focus_distance": 3.0, "vignette_intensity": 0.08},
+            "swish_pan_reveal": {"rig_style": "tripod", "fov_start": 74.0, "fov_end": 66.0, "zoom_profile": "crash_zoom_out", "motion_blur_intensity": 0.4, "chromatic_aberration": 0.16, "bloom_intensity": 0.18},
+            "zoom_in_punch": {"rig_style": "tripod", "fov_start": 74.0, "fov_end": 42.0, "zoom_profile": "zoom_in", "aperture_start": 5.6, "aperture_end": 2.2, "vignette_intensity_start": 0.02, "vignette_intensity_end": 0.22, "contrast_end": 16.0},
+            "zoom_out_reveal": {"rig_style": "tripod", "fov_start": 42.0, "fov_end": 76.0, "zoom_profile": "zoom_out", "aperture_start": 2.8, "aperture_end": 8.0, "post_exposure_end": 0.18, "bloom_intensity_end": 0.12},
             "low_angle_hero": {"vantage": "low_angle", "camera_height": 0.55, "camera_distance": 2.4, "lens_profile": "telephoto", "look_at_offset": [0.0, 0.8, 0.0], "fov": 44.0, "aperture": 2.4, "dutch": 4.0},
-            "wide_lens_rush": {"lens_profile": "wide_angle", "camera_height": 1.1, "camera_distance": 1.7, "fov": 84.0},
-            "fisheye_surge": {"lens_profile": "fisheye", "camera_height": 0.75, "camera_distance": 1.2, "fov": 95.0},
-            "deep_focus_tableau": {"lens_profile": "wide_angle", "camera_height": 2.4, "camera_distance": 4.0, "fov": 72.0, "aperture": 11.0, "focus_distance": 8.0},
+            "wide_lens_rush": {"lens_profile": "wide_angle", "camera_height": 1.1, "camera_distance": 1.7, "fov": 84.0, "motion_blur_intensity": 0.22, "chromatic_aberration": 0.08},
+            "fisheye_surge": {"lens_profile": "fisheye", "camera_height": 0.75, "camera_distance": 1.2, "fov": 95.0, "chromatic_aberration": 0.24, "film_grain_intensity": 0.18},
+            "deep_focus_tableau": {"lens_profile": "wide_angle", "camera_height": 2.4, "camera_distance": 4.0, "fov": 72.0, "aperture": 11.0, "focus_distance": 8.0, "contrast": 10.0, "vignette_intensity": 0.06},
             "pov_drive": {"rig_style": "steadicam", "camera_height": 1.1, "camera_distance": 0.35, "look_at_offset": [0.0, 0.15, 6.0], "fov": 82.0, "film_terms": ["point of view"]},
         }
         return presets.get(dsl, {})
@@ -1109,6 +1382,15 @@ class TemporalTrajectorySolver:
                 aperture=points[j].aperture,
                 focal_length=points[j].focal_length,
                 lens_shift=points[j].lens_shift,
+                bloom_intensity=points[j].bloom_intensity,
+                bloom_threshold=points[j].bloom_threshold,
+                vignette_intensity=points[j].vignette_intensity,
+                post_exposure=points[j].post_exposure,
+                saturation=points[j].saturation,
+                contrast=points[j].contrast,
+                chromatic_aberration=points[j].chromatic_aberration,
+                film_grain_intensity=points[j].film_grain_intensity,
+                motion_blur_intensity=points[j].motion_blur_intensity,
             )
 
     def _apply_whip_entry(
@@ -1147,6 +1429,15 @@ class TemporalTrajectorySolver:
                 aperture=points[j].aperture,
                 focal_length=points[j].focal_length,
                 lens_shift=points[j].lens_shift,
+                bloom_intensity=points[j].bloom_intensity,
+                bloom_threshold=points[j].bloom_threshold,
+                vignette_intensity=points[j].vignette_intensity,
+                post_exposure=points[j].post_exposure,
+                saturation=points[j].saturation,
+                contrast=points[j].contrast,
+                chromatic_aberration=points[j].chromatic_aberration,
+                film_grain_intensity=points[j].film_grain_intensity,
+                motion_blur_intensity=points[j].motion_blur_intensity,
             )
 
     def _compute_temporal_metrics(

@@ -82,6 +82,33 @@ DSL requirements:
   - `lens_shift`
   - `lens_shift_start`
   - `lens_shift_end`
+  - `bloom_intensity`
+  - `bloom_intensity_start`
+  - `bloom_intensity_end`
+  - `bloom_threshold`
+  - `bloom_threshold_start`
+  - `bloom_threshold_end`
+  - `vignette_intensity`
+  - `vignette_intensity_start`
+  - `vignette_intensity_end`
+  - `post_exposure`
+  - `post_exposure_start`
+  - `post_exposure_end`
+  - `saturation`
+  - `saturation_start`
+  - `saturation_end`
+  - `contrast`
+  - `contrast_start`
+  - `contrast_end`
+  - `chromatic_aberration`
+  - `chromatic_aberration_start`
+  - `chromatic_aberration_end`
+  - `film_grain_intensity`
+  - `film_grain_intensity_start`
+  - `film_grain_intensity_end`
+  - `motion_blur_intensity`
+  - `motion_blur_intensity_start`
+  - `motion_blur_intensity_end`
   - `zoom_profile`
   - `rig_style`
   - `camera_offset`
@@ -101,7 +128,7 @@ Creative guidance:
 - Avoid repetitive shot grammar unless the user explicitly wants uniformity.
 - If the user asks for helicopter/drone/surveillance/top-down/high-angle work, make that visible in both naming and constraints.
 - If the user asks for crane/handheld/Steadicam/zoom/wide-angle/fisheye language, choose a matching DSL or constraints package rather than generic coverage.
-- If the user asks for dutch angle, canted angle, shallow focus, deep focus, or physical lens-shift framing, encode those choices numerically in constraints rather than leaving them implicit.
+- If the user asks for dutch angle, canted angle, shallow focus, deep focus, physical lens-shift framing, stylized bloom, vignette, exposure modulation, grain, chromatic fringing, or transition-driven motion blur, encode those choices numerically in constraints rather than leaving them implicit.
 - Use `camera_implication` from semantic events to bias DSL choice as well as framing.
 - When action gets hard to read, use one shot to restore geography before escalating again.
 - Let transitions and FOV shifts carry editorial energy, not just movement labels.

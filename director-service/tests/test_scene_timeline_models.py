@@ -145,6 +145,14 @@ class TestTemporalTrajectoryPlan:
             aperture=2.8,
             focal_length=55.0,
             lens_shift=(0.05, -0.02),
+            bloom_intensity=0.25,
+            vignette_intensity=0.18,
+            post_exposure=0.4,
+            saturation=12.0,
+            contrast=8.0,
+            chromatic_aberration=0.1,
+            film_grain_intensity=0.2,
+            motion_blur_intensity=0.15,
         )
         assert pt.timestamp == 1.0
         assert pt.fov == 50.0
@@ -153,6 +161,14 @@ class TestTemporalTrajectoryPlan:
         assert pt.aperture == 2.8
         assert pt.focal_length == 55.0
         assert pt.lens_shift == (0.05, -0.02)
+        assert pt.bloom_intensity == 0.25
+        assert pt.vignette_intensity == 0.18
+        assert pt.post_exposure == 0.4
+        assert pt.saturation == 12.0
+        assert pt.contrast == 8.0
+        assert pt.chromatic_aberration == 0.1
+        assert pt.film_grain_intensity == 0.2
+        assert pt.motion_blur_intensity == 0.15
 
     def test_create_trajectory(self):
         traj = TemporalShotTrajectory(

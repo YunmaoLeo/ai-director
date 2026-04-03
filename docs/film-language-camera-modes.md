@@ -100,6 +100,17 @@ The solver currently supports these physical controls in shot `constraints`:
 - `lens_shift`
 - `lens_shift_start`
 - `lens_shift_end`
+- `bloom_intensity`
+- `bloom_intensity_start`
+- `bloom_intensity_end`
+- `bloom_threshold`
+- `vignette_intensity`
+- `post_exposure`
+- `saturation`
+- `contrast`
+- `chromatic_aberration`
+- `film_grain_intensity`
+- `motion_blur_intensity`
 - `lens_profile`
 - `zoom_profile`
 - `rig_style`
@@ -124,7 +135,7 @@ This means the system can now vary not only camera position and look-at, but als
 - physical lens shift,
 - rig feel such as handheld vs. steadicam.
 
-At runtime, Unity now executes this through `Cinemachine` plus URP `Depth Of Field`, so these controls are not only prompt-level language. They are part of the actual playback path.
+At runtime, Unity now executes this through `Cinemachine` plus URP post-processing. That means `Depth Of Field`, `Bloom`, `Vignette`, `Color Adjustments`, `Chromatic Aberration`, `Film Grain`, and `Motion Blur` can all become part of the actual playback path instead of staying prompt-level language only.
 
 ---
 

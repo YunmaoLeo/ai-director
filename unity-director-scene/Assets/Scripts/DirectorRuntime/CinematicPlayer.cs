@@ -55,6 +55,12 @@ namespace DirectorRuntime
         private NoiseSettings _noiseProfile;
         private VolumeProfile _runtimeVolumeProfile;
         private DepthOfField _depthOfField;
+        private Bloom _bloom;
+        private Vignette _vignette;
+        private ColorAdjustments _colorAdjustments;
+        private ChromaticAberration _chromaticAberration;
+        private FilmGrain _filmGrain;
+        private MotionBlur _motionBlur;
         private FollowTarget _suspendedFollowTarget;
         private bool _suspendedFollowTargetWasEnabled;
 
@@ -76,6 +82,15 @@ namespace DirectorRuntime
             public float aperture;
             public float focalLength;
             public Vector2 lensShift;
+            public float bloomIntensity;
+            public float bloomThreshold;
+            public float vignetteIntensity;
+            public float postExposure;
+            public float saturation;
+            public float contrast;
+            public float chromaticAberration;
+            public float filmGrainIntensity;
+            public float motionBlurIntensity;
         }
 
         /// <summary>
@@ -321,6 +336,18 @@ namespace DirectorRuntime
 
             if (!_runtimeVolumeProfile.TryGet(out _depthOfField))
                 _depthOfField = _runtimeVolumeProfile.Add<DepthOfField>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _bloom))
+                _bloom = _runtimeVolumeProfile.Add<Bloom>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _vignette))
+                _vignette = _runtimeVolumeProfile.Add<Vignette>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _colorAdjustments))
+                _colorAdjustments = _runtimeVolumeProfile.Add<ColorAdjustments>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _chromaticAberration))
+                _chromaticAberration = _runtimeVolumeProfile.Add<ChromaticAberration>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _filmGrain))
+                _filmGrain = _runtimeVolumeProfile.Add<FilmGrain>(true);
+            if (!_runtimeVolumeProfile.TryGet(out _motionBlur))
+                _motionBlur = _runtimeVolumeProfile.Add<MotionBlur>(true);
 
             _depthOfField.active = true;
             _depthOfField.mode.overrideState = true;
@@ -328,6 +355,29 @@ namespace DirectorRuntime
             _depthOfField.focusDistance.overrideState = true;
             _depthOfField.aperture.overrideState = true;
             _depthOfField.focalLength.overrideState = true;
+
+            _bloom.active = true;
+            _bloom.intensity.overrideState = true;
+            _bloom.threshold.overrideState = true;
+
+            _vignette.active = true;
+            _vignette.intensity.overrideState = true;
+            _vignette.smoothness.overrideState = true;
+            _vignette.rounded.overrideState = true;
+
+            _colorAdjustments.active = true;
+            _colorAdjustments.postExposure.overrideState = true;
+            _colorAdjustments.saturation.overrideState = true;
+            _colorAdjustments.contrast.overrideState = true;
+
+            _chromaticAberration.active = true;
+            _chromaticAberration.intensity.overrideState = true;
+
+            _filmGrain.active = true;
+            _filmGrain.intensity.overrideState = true;
+
+            _motionBlur.active = true;
+            _motionBlur.intensity.overrideState = true;
         }
 
         private TemporalShotTrajectory FindActiveTrajectory(float time)
@@ -421,6 +471,15 @@ namespace DirectorRuntime
                 aperture = point.aperture,
                 focalLength = point.focal_length,
                 lensShift = point.LensShift,
+                bloomIntensity = point.bloom_intensity,
+                bloomThreshold = point.bloom_threshold,
+                vignetteIntensity = point.vignette_intensity,
+                postExposure = point.post_exposure,
+                saturation = point.saturation,
+                contrast = point.contrast,
+                chromaticAberration = point.chromatic_aberration,
+                filmGrainIntensity = point.film_grain_intensity,
+                motionBlurIntensity = point.motion_blur_intensity,
             };
         }
 
@@ -457,6 +516,49 @@ namespace DirectorRuntime
                 _depthOfField.focusDistance.value = Mathf.Max(0.1f, state.focusDistance);
                 _depthOfField.aperture.value = Mathf.Clamp(state.aperture, 1f, 32f);
                 _depthOfField.focalLength.value = Mathf.Clamp(state.focalLength, 1f, 300f);
+            }
+
+            if (_bloom != null)
+            {
+                _bloom.active = state.bloomIntensity > 0.001f;
+                _bloom.intensity.value = Mathf.Clamp(state.bloomIntensity, 0f, 6f);
+                _bloom.threshold.value = Mathf.Clamp(state.bloomThreshold, 0f, 4f);
+            }
+
+            if (_vignette != null)
+            {
+                _vignette.active = state.vignetteIntensity > 0.001f;
+                _vignette.intensity.value = Mathf.Clamp01(state.vignetteIntensity);
+                _vignette.smoothness.value = Mathf.Lerp(0.22f, 0.78f, Mathf.Clamp01(state.vignetteIntensity * 1.4f));
+                _vignette.rounded.value = state.vignetteIntensity >= 0.18f;
+            }
+
+            if (_colorAdjustments != null)
+            {
+                _colorAdjustments.active = Mathf.Abs(state.postExposure) > 0.001f
+                    || Mathf.Abs(state.saturation) > 0.001f
+                    || Mathf.Abs(state.contrast) > 0.001f;
+                _colorAdjustments.postExposure.value = Mathf.Clamp(state.postExposure, -3f, 3f);
+                _colorAdjustments.saturation.value = Mathf.Clamp(state.saturation, -100f, 100f);
+                _colorAdjustments.contrast.value = Mathf.Clamp(state.contrast, -100f, 100f);
+            }
+
+            if (_chromaticAberration != null)
+            {
+                _chromaticAberration.active = state.chromaticAberration > 0.001f;
+                _chromaticAberration.intensity.value = Mathf.Clamp01(state.chromaticAberration);
+            }
+
+            if (_filmGrain != null)
+            {
+                _filmGrain.active = state.filmGrainIntensity > 0.001f;
+                _filmGrain.intensity.value = Mathf.Clamp01(state.filmGrainIntensity);
+            }
+
+            if (_motionBlur != null)
+            {
+                _motionBlur.active = state.motionBlurIntensity > 0.001f;
+                _motionBlur.intensity.value = Mathf.Clamp01(state.motionBlurIntensity);
             }
         }
 
@@ -507,21 +609,44 @@ namespace DirectorRuntime
                 aperture = Mathf.Clamp(targetCamera.aperture, 1f, 16f),
                 focalLength = Mathf.Max(1f, targetCamera.focalLength),
                 lensShift = targetCamera.lensShift,
+                bloomIntensity = _bloom != null ? _bloom.intensity.value : 0f,
+                bloomThreshold = _bloom != null ? _bloom.threshold.value : 1f,
+                vignetteIntensity = _vignette != null ? _vignette.intensity.value : 0f,
+                postExposure = _colorAdjustments != null ? _colorAdjustments.postExposure.value : 0f,
+                saturation = _colorAdjustments != null ? _colorAdjustments.saturation.value : 0f,
+                contrast = _colorAdjustments != null ? _colorAdjustments.contrast.value : 0f,
+                chromaticAberration = _chromaticAberration != null ? _chromaticAberration.intensity.value : 0f,
+                filmGrainIntensity = _filmGrain != null ? _filmGrain.intensity.value : 0f,
+                motionBlurIntensity = _motionBlur != null ? _motionBlur.intensity.value : 0f,
             };
         }
 
         private static CameraFrameState LerpState(CameraFrameState a, CameraFrameState b, float t)
         {
+            float lensT = Mathf.SmoothStep(0f, 1f, t);
+            float gradeT = 0.5f - 0.5f * Mathf.Cos(Mathf.Clamp01(t) * Mathf.PI);
+            float glowT = Mathf.Sqrt(Mathf.Clamp01(t));
+            float textureT = Mathf.Pow(Mathf.SmoothStep(0f, 1f, t), 0.85f);
+
             return new CameraFrameState
             {
-                position = Vector3.Lerp(a.position, b.position, t),
-                rotation = Quaternion.Slerp(a.rotation, b.rotation, t),
-                fov = Mathf.Lerp(a.fov, b.fov, t),
-                dutch = Mathf.Lerp(a.dutch, b.dutch, t),
-                focusDistance = Mathf.Lerp(a.focusDistance, b.focusDistance, t),
-                aperture = Mathf.Lerp(a.aperture, b.aperture, t),
-                focalLength = Mathf.Lerp(a.focalLength, b.focalLength, t),
-                lensShift = Vector2.Lerp(a.lensShift, b.lensShift, t),
+                position = Vector3.Lerp(a.position, b.position, lensT),
+                rotation = Quaternion.Slerp(a.rotation, b.rotation, lensT),
+                fov = Mathf.Lerp(a.fov, b.fov, lensT),
+                dutch = Mathf.Lerp(a.dutch, b.dutch, gradeT),
+                focusDistance = Mathf.Lerp(a.focusDistance, b.focusDistance, lensT),
+                aperture = Mathf.Lerp(a.aperture, b.aperture, lensT),
+                focalLength = Mathf.Lerp(a.focalLength, b.focalLength, lensT),
+                lensShift = Vector2.Lerp(a.lensShift, b.lensShift, lensT),
+                bloomIntensity = Mathf.Lerp(a.bloomIntensity, b.bloomIntensity, glowT),
+                bloomThreshold = Mathf.Lerp(a.bloomThreshold, b.bloomThreshold, gradeT),
+                vignetteIntensity = Mathf.Lerp(a.vignetteIntensity, b.vignetteIntensity, gradeT),
+                postExposure = Mathf.Lerp(a.postExposure, b.postExposure, gradeT),
+                saturation = Mathf.Lerp(a.saturation, b.saturation, gradeT),
+                contrast = Mathf.Lerp(a.contrast, b.contrast, gradeT),
+                chromaticAberration = Mathf.Lerp(a.chromaticAberration, b.chromaticAberration, glowT),
+                filmGrainIntensity = Mathf.Lerp(a.filmGrainIntensity, b.filmGrainIntensity, textureT),
+                motionBlurIntensity = Mathf.Lerp(a.motionBlurIntensity, b.motionBlurIntensity, glowT),
             };
         }
 

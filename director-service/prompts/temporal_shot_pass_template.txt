@@ -95,6 +95,33 @@ Guidelines:
   - `lens_shift`: explicit `[x, y]` physical lens shift
   - `lens_shift_start`: starting `[x, y]` lens shift
   - `lens_shift_end`: ending `[x, y]` lens shift
+  - `bloom_intensity`: highlight glow / halation strength
+  - `bloom_intensity_start`: starting bloom strength
+  - `bloom_intensity_end`: ending bloom strength
+  - `bloom_threshold`: bloom trigger threshold
+  - `bloom_threshold_start`: starting bloom threshold
+  - `bloom_threshold_end`: ending bloom threshold
+  - `vignette_intensity`: edge darkening strength
+  - `vignette_intensity_start`: starting vignette strength
+  - `vignette_intensity_end`: ending vignette strength
+  - `post_exposure`: exposure offset in stops
+  - `post_exposure_start`: starting exposure offset
+  - `post_exposure_end`: ending exposure offset
+  - `saturation`: color saturation adjustment
+  - `saturation_start`: starting saturation
+  - `saturation_end`: ending saturation
+  - `contrast`: image contrast adjustment
+  - `contrast_start`: starting contrast
+  - `contrast_end`: ending contrast
+  - `chromatic_aberration`: edge fringing intensity
+  - `chromatic_aberration_start`: starting fringing
+  - `chromatic_aberration_end`: ending fringing
+  - `film_grain_intensity`: grain amount
+  - `film_grain_intensity_start`: starting grain amount
+  - `film_grain_intensity_end`: ending grain amount
+  - `motion_blur_intensity`: motion blur amount
+  - `motion_blur_intensity_start`: starting motion blur amount
+  - `motion_blur_intensity_end`: ending motion blur amount
   - `zoom_profile`: e.g. `zoom_in`, `zoom_out`, `crash_zoom_in`, `crash_zoom_out`, `breathing`
   - `rig_style`: e.g. `handheld`, `steadicam`, `crane`, `tripod`
   - `camera_offset`: explicit `[x, y, z]` offset from the look-at point
@@ -107,7 +134,7 @@ Guidelines:
   - `film_terms`: optional array of glossary terms you are intentionally invoking
 - If the user asks for helicopter/drone/overhead/top-down coverage, do not translate that into generic ground-level wide shots. Keep the aerial intent explicit in both naming and constraints.
 - If the user asks for crane/high-angle/low-angle/handheld/Steadicam/zoom/wide-angle/fisheye language, keep that terminology explicit and pair it with matching physical constraints.
-- If the user asks for dutch angle, canted angle, shallow focus, rack-focus energy, deep focus, or architectural lens shift, keep those choices explicit in constraints instead of collapsing them into generic framing labels.
+- If the user asks for dutch angle, canted angle, shallow focus, rack-focus energy, deep focus, architectural lens shift, bloom-heavy highlights, vignette, stylized exposure shifts, grain, chromatic fringing, or motion-blur-driven transitions, keep those choices explicit in constraints instead of collapsing them into generic framing labels.
 - Use transition_in intentionally (not all smooth):
   - cut/hard_cut for decisive switch
   - flash_cut for brief impact punctuation
