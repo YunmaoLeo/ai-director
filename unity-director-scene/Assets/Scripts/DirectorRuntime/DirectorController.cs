@@ -1,4 +1,6 @@
 using UnityEngine;
+using UnityEngine.AI;
+using CubePeople;
 
 namespace DirectorRuntime
 {
@@ -238,8 +240,26 @@ namespace DirectorRuntime
 
         private void SetActorMovement(bool enabled)
         {
+            // Waypoint-based actors (racing scenes, custom paths)
             var followers = FindObjectsByType<WaypointFollower>(FindObjectsSortMode.None);
             foreach (var f in followers) f.SetActive(enabled);
+
+            // NavMesh-based NPCs (human interaction scenes)
+            var trafficAgents = FindObjectsByType<CubePeopleTraffic>(FindObjectsSortMode.None);
+            foreach (var t in trafficAgents) t.enabled = enabled;
+
+            var navAgents = FindObjectsByType<NavMeshAgent>(FindObjectsSortMode.None);
+            foreach (var agent in navAgents)
+            {
+                if (!enabled)
+                {
+                    if (agent.isOnNavMesh) agent.isStopped = true;
+                }
+                else
+                {
+                    if (agent.isOnNavMesh) agent.isStopped = false;
+                }
+            }
         }
 
         private void ResetActorsToStart()

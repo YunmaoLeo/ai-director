@@ -504,7 +504,9 @@ namespace DirectorRuntime
             return appliedActors > 0;
         }
 
-        private static ObjectTrackSample SampleTrackAt(List<ObjectTrackSample> samples, float timestamp)
+        private int _sampleTrackSearchIndex;
+
+        private ObjectTrackSample SampleTrackAt(List<ObjectTrackSample> samples, float timestamp)
         {
             if (samples.Count == 1 || timestamp <= samples[0].timestamp)
                 return samples[0];
@@ -513,7 +515,11 @@ namespace DirectorRuntime
             if (timestamp >= last.timestamp)
                 return last;
 
-            for (int i = 0; i < samples.Count - 1; i++)
+            int start = Mathf.Clamp(_sampleTrackSearchIndex, 0, samples.Count - 2);
+            if (samples[start].timestamp > timestamp)
+                start = 0;
+
+            for (int i = start; i < samples.Count - 1; i++)
             {
                 var a = samples[i];
                 var b = samples[i + 1];
@@ -540,6 +546,7 @@ namespace DirectorRuntime
                 var p = Vector3.Lerp(pa, pb, t);
                 var r = Quaternion.Slerp(ra, rb, t).eulerAngles;
 
+                _sampleTrackSearchIndex = i;
                 return new ObjectTrackSample
                 {
                     timestamp = timestamp,

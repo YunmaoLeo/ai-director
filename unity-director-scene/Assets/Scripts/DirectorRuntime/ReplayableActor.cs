@@ -37,8 +37,13 @@ namespace DirectorRuntime
         [HideInInspector] public List<Snapshot> recordedSnapshots = new List<Snapshot>();
 
         private Vector3 _prevPosition;
+        private float _prevSnapshotTime;
         private bool _isReplaying;
         private int _replayIndex;
+        private Vector3 _currentReplayVelocity;
+
+        public bool IsReplaying => _isReplaying;
+        public Vector3 CurrentReplayVelocity => _currentReplayVelocity;
 
         void Awake()
         {
@@ -54,12 +59,14 @@ namespace DirectorRuntime
         {
             recordedSnapshots.Clear();
             _prevPosition = transform.position;
+            _prevSnapshotTime = -1f;
         }
 
         public void CaptureSnapshot(float time)
         {
             var pos = transform.position;
-            var vel = (pos - _prevPosition) / Mathf.Max(Time.deltaTime, 0.001f);
+            float dt = _prevSnapshotTime >= 0f ? (time - _prevSnapshotTime) : 0f;
+            var vel = dt > 0.001f ? (pos - _prevPosition) / dt : Vector3.zero;
             recordedSnapshots.Add(new Snapshot
             {
                 time = time,
@@ -69,6 +76,7 @@ namespace DirectorRuntime
                 visible = gameObject.activeInHierarchy
             });
             _prevPosition = pos;
+            _prevSnapshotTime = time;
         }
 
         // ── Replay ──
@@ -77,34 +85,44 @@ namespace DirectorRuntime
         {
             _isReplaying = true;
             _replayIndex = 0;
+            _currentReplayVelocity = Vector3.zero;
         }
 
         public void EndReplay()
         {
             _isReplaying = false;
+            _currentReplayVelocity = Vector3.zero;
         }
 
         /// <summary>
         /// Sets transform to the interpolated recorded state at the given time.
+        /// Uses cached _replayIndex for O(1) amortized lookup during sequential playback.
         /// </summary>
         public void SetReplayTime(float time)
         {
             if (recordedSnapshots.Count == 0) return;
 
-            // Clamp
             if (time <= recordedSnapshots[0].time)
             {
                 ApplySnapshot(recordedSnapshots[0]);
+                _replayIndex = 0;
                 return;
             }
             if (time >= recordedSnapshots[recordedSnapshots.Count - 1].time)
             {
                 ApplySnapshot(recordedSnapshots[recordedSnapshots.Count - 1]);
+                _replayIndex = Mathf.Max(0, recordedSnapshots.Count - 2);
                 return;
             }
 
-            // Find bracketing snapshots
-            for (int i = 0; i < recordedSnapshots.Count - 1; i++)
+            // Start search from cached index for sequential access
+            int start = Mathf.Clamp(_replayIndex, 0, recordedSnapshots.Count - 2);
+
+            // If cached position is ahead of time, reset to beginning
+            if (recordedSnapshots[start].time > time)
+                start = 0;
+
+            for (int i = start; i < recordedSnapshots.Count - 1; i++)
             {
                 var a = recordedSnapshots[i];
                 var b = recordedSnapshots[i + 1];
@@ -113,6 +131,8 @@ namespace DirectorRuntime
                     float t = (time - a.time) / Mathf.Max(b.time - a.time, 0.0001f);
                     transform.position = Vector3.Lerp(a.position, b.position, t);
                     transform.rotation = Quaternion.Slerp(a.rotation, b.rotation, t);
+                    _currentReplayVelocity = Vector3.Lerp(a.velocity, b.velocity, t);
+                    _replayIndex = i;
                     return;
                 }
             }
@@ -122,6 +142,7 @@ namespace DirectorRuntime
         {
             transform.position = s.position;
             transform.rotation = s.rotation;
+            _currentReplayVelocity = s.velocity;
         }
 
         /// <summary>

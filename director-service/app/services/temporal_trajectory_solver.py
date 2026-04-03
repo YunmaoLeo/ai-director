@@ -99,6 +99,14 @@ class TemporalTrajectorySolver:
         objects_by_id = {o.id: o for o in timeline.objects_static}
         shots_by_id = {s.shot_id: s for s in plan.shots}
 
+        # Pre-compute sample dicts once to avoid repeated model_dump() calls
+        # during per-timestep interpolation (O(N*M*K) → O(M*K) total).
+        self._track_samples_cache: dict[str, list[dict]] = {
+            track_id: [s.model_dump() for s in track.samples]
+            for track_id, track in tracks_by_id.items()
+            if track.samples
+        }
+
         trajectories: list[TemporalShotTrajectory] = []
         for shot in plan.shots:
             traj = self._solve_temporal_shot(
@@ -378,7 +386,8 @@ class TemporalTrajectorySolver:
         # Check tracks first
         track = tracks_by_id.get(subject_id)
         if track and track.samples:
-            samples_dicts = [s.model_dump() for s in track.samples]
+            cached = getattr(self, '_track_samples_cache', None)
+            samples_dicts = cached[subject_id] if cached and subject_id in cached else [s.model_dump() for s in track.samples]
             return interpolate_track_at_time(samples_dicts, timestamp)
 
         # Fall back to static object
@@ -1282,7 +1291,8 @@ class TemporalTrajectorySolver:
             for track_id, track in tracks_by_id.items():
                 if not track.samples:
                     continue
-                samples_dicts = [s.model_dump() for s in track.samples]
+                cached = getattr(self, '_track_samples_cache', None)
+                samples_dicts = cached[track_id] if cached and track_id in cached else [s.model_dump() for s in track.samples]
                 track_pos = interpolate_track_at_time(samples_dicts, ts)
                 # Use a default size for tracked objects
                 track_size = (0.6, 1.8, 0.6)
@@ -1539,8 +1549,9 @@ class TemporalTrajectorySolver:
             return 1.0
 
         tracking_scores: list[float] = []
+        cached = getattr(self, '_track_samples_cache', None)
+        samples_dicts = cached[shot.subject] if cached and shot.subject in cached else [s.model_dump() for s in track.samples]
         for pt, la, ts in zip(points, look_ats, timestamps):
-            samples_dicts = [s.model_dump() for s in track.samples]
             actual_pos = interpolate_track_at_time(samples_dicts, ts)
             look_dist = xz_distance(la, actual_pos)
             # Score: 1.0 if look_at is exactly on subject, drops off linearly

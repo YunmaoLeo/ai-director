@@ -68,6 +68,7 @@ class CameraCandidate(BaseModel):
 
 
 class SceneTimeline(BaseModel):
+    schema_version: str = "1.0"
     scene_id: str
     scene_name: str
     scene_type: str

@@ -134,6 +134,7 @@ namespace DirectorRuntime
     [Serializable]
     public class SceneTimelineData
     {
+        public string schema_version = "1.0";
         public string scene_id;
         public string scene_name;
         public string scene_type;

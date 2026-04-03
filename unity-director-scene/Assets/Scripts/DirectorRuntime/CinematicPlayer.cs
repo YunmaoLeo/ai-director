@@ -72,6 +72,9 @@ namespace DirectorRuntime
         private bool _isBlending;
         private string _activeTransitionIn = "cut";
 
+        private CameraFrameState _savedPrePlaybackState;
+        private bool _hasSavedPrePlaybackState;
+
         private struct CameraFrameState
         {
             public Vector3 position;
@@ -118,6 +121,9 @@ namespace DirectorRuntime
 
             SuspendGameplayCameraDrivers();
 
+            _savedPrePlaybackState = CaptureCurrentState();
+            _hasSavedPrePlaybackState = true;
+
             _startTime = _plan.time_span != null ? _plan.time_span.start : _plan.trajectories[0].time_start;
             _endTime = _plan.time_span != null ? _plan.time_span.end :
                 _plan.trajectories[_plan.trajectories.Count - 1].time_end;
@@ -154,6 +160,13 @@ namespace DirectorRuntime
             }
 
             ApplyRigMetadata(null);
+
+            if (_hasSavedPrePlaybackState)
+            {
+                ApplyCameraState(_savedPrePlaybackState);
+                _hasSavedPrePlaybackState = false;
+            }
+
             ResumeGameplayCameraDrivers();
             Debug.Log("[CinematicPlayer] Playback stopped.");
         }
@@ -298,7 +311,7 @@ namespace DirectorRuntime
 
             if (globalVolume == null)
             {
-                var volumes = FindObjectsOfType<Volume>(true);
+                var volumes = FindObjectsByType<Volume>(FindObjectsSortMode.None);
                 foreach (var volume in volumes)
                 {
                     if (!volume.isGlobal)
