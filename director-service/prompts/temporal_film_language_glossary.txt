@@ -1,0 +1,22 @@
+Selected film-language terms adapted for this project from the Columbia Film Language Glossary:
+
+- `aerial shot`: camera observes from high overhead; use for scale, route readability, or tactical overview.
+- `crane shot`: camera rises, descends, or sweeps vertically through space; encode with height change across the shot.
+- `high-angle shot`: camera looks down from above eye level; useful for surveillance, vulnerability, or geometric clarity.
+- `low-angle shot`: camera looks upward from below eye level; useful for dominance, power, or momentum.
+- `handheld shot`: camera feels embodied and unstable; use when you want urgency, roughness, or subjectivity.
+- `Steadicam shot`: camera glides smoothly through space; use for controlled follow shots with fluid momentum.
+- `swish pan`: very fast pan that carries energy and directional force into the next image.
+- `dutch angle` / `canted angle`: tilted horizon that introduces instability, menace, or impact.
+- `tracking (trucking) shot`: camera moves through space with or alongside the subject rather than only rotating in place.
+- `zoom shot`: focal length changes during the shot without requiring major camera translation; express with FOV change.
+- `wide-angle lens`: broader field of view and stronger depth exaggeration; useful for speed, scale, or spatial distortion.
+- `fisheye lens`: extreme wide-angle look; useful for stylization, pressure, or disorientation.
+- `rack focus`: focus plane shifts during the shot; useful for attention transfer or reveal emphasis.
+- `shallow focus`: narrow plane of sharpness; use for intimacy, isolation, or emphasis.
+- `deep focus`: near and far planes stay legible together; bias toward geography-preserving coverage and wider lens language.
+- `point of view (POV)`: subjective view aligned with a character or vehicle.
+- `establishing shot`: distant orienting shot that clarifies space before tighter coverage.
+- `close-up / medium shot / long shot`: standard scale vocabulary for how much of the subject and surroundings are visible.
+
+When one of these terms is central to the user's intent, keep the term visible in your shot design by using it in `shot_type`, `movement`, or `constraints.film_terms`, and translate it into physical camera controls such as `camera_height`, `camera_height_start`, `camera_height_end`, `fov`, `fov_start`, `fov_end`, `dutch`, `focus_distance`, `aperture`, `focal_length`, `lens_shift`, `lens_profile`, `zoom_profile`, `rig_style`, `vantage`, or `dsl`.

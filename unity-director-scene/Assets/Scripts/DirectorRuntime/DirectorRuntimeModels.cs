@@ -245,9 +245,15 @@ namespace DirectorRuntime
         public float[] position = new float[3];
         public float[] look_at = new float[3];
         public float fov = 60f;
+        public float dutch = 0f;
+        public float focus_distance = 10f;
+        public float aperture = 5.6f;
+        public float focal_length = 50f;
+        public float[] lens_shift = new float[2] { 0f, 0f };
 
         public Vector3 Position => new Vector3(position[0], position[1], position[2]);
         public Vector3 LookAt => new Vector3(look_at[0], look_at[1], look_at[2]);
+        public Vector2 LensShift => new Vector2(lens_shift[0], lens_shift[1]);
     }
 
     [Serializable]
@@ -268,6 +274,9 @@ namespace DirectorRuntime
         public float time_end;
         public string transition_in = "cut";
         public string path_type = "linear";
+        public string rig_style = "default";
+        public float noise_amplitude = 0f;
+        public float noise_frequency = 0f;
         public List<TimedTrajectoryPoint> timed_points = new List<TimedTrajectoryPoint>();
         public TrajectoryMetrics metrics = new TrajectoryMetrics();
     }

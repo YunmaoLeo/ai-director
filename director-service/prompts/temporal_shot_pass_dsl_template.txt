@@ -28,6 +28,9 @@ Time Span: {time_start}s to {time_end}s ({duration}s total)
 ## Beats (from Pass 1)
 {beats_text}
 
+## Film Language Glossary
+{film_language_glossary_text}
+
 ## Camera DSL Catalog
 {camera_dsl_catalog_text}
 
@@ -56,9 +59,31 @@ DSL requirements:
 - In `constraints`, include a primary `dsl` field whenever the shot has a recognizable rig/grammar pattern.
 - Use explicit physical controls in `constraints` whenever they matter:
   - `camera_height`
+  - `camera_height_start`
+  - `camera_height_end`
   - `camera_distance`
   - `distance_scale`
   - `fov`
+  - `fov_start`
+  - `fov_end`
+  - `dutch`
+  - `dutch_start`
+  - `dutch_end`
+  - `focus_distance`
+  - `focus_distance_start`
+  - `focus_distance_end`
+  - `aperture`
+  - `aperture_start`
+  - `aperture_end`
+  - `focal_length`
+  - `focal_length_start`
+  - `focal_length_end`
+  - `lens_profile`
+  - `lens_shift`
+  - `lens_shift_start`
+  - `lens_shift_end`
+  - `zoom_profile`
+  - `rig_style`
   - `camera_offset`
   - `look_at_offset`
   - `overhead`
@@ -66,6 +91,7 @@ DSL requirements:
   - `height_bias`
   - `vantage`
   - `orbit_arc_degrees`
+  - `film_terms`
 - If the intent asks for an unusual or strong camera concept, do not leave it implicit. Encode it directly.
 
 Creative guidance:
@@ -74,6 +100,8 @@ Creative guidance:
 - Use DSL choices to stabilize quality while still allowing strong variation.
 - Avoid repetitive shot grammar unless the user explicitly wants uniformity.
 - If the user asks for helicopter/drone/surveillance/top-down/high-angle work, make that visible in both naming and constraints.
+- If the user asks for crane/handheld/Steadicam/zoom/wide-angle/fisheye language, choose a matching DSL or constraints package rather than generic coverage.
+- If the user asks for dutch angle, canted angle, shallow focus, deep focus, or physical lens-shift framing, encode those choices numerically in constraints rather than leaving them implicit.
 - Use `camera_implication` from semantic events to bias DSL choice as well as framing.
 - When action gets hard to read, use one shot to restore geography before escalating again.
 - Let transitions and FOV shifts carry editorial energy, not just movement labels.

@@ -2,6 +2,7 @@
 
 ## Pre-flight
 - [ ] Unity project opens without compilation errors.
+- [ ] Unity resolves `com.unity.cinemachine` without package errors.
 - [ ] Backend is running at configured URL (default `http://localhost:8000`).
 - [ ] Backend `POST /api/unity/temporal/generate` is reachable (test with `curl -X POST http://localhost:8000/api/unity/temporal/generate -H "Content-Type: application/json" -d '{}'` - should return a validation error, not a connection error).
 
@@ -20,16 +21,22 @@
 - [ ] Console logs show: recording started, recording stopped, timeline built with object/track/event counts.
 
 ## Plan Generation
+- [ ] Planning mode can be switched between `Freeform LLM` and `Camera DSL` before generation.
 - [ ] Click **Generate Plan**. Status shows "Sending to backend...".
 - [ ] Console log confirms request sent with scene_id and intent.
 - [ ] After backend responds, status shows policy, shot count, trajectory count.
 - [ ] `lastResponseJson` on DirectorApiClient is populated (check Inspector in pause).
 - [ ] If `saveDebugFiles` is on, JSON files exist in `Application.persistentDataPath`.
+- [ ] For film-language prompts such as "crane shot", "handheld chase", "wide-angle lens", or "zoom in", the returned shots/trajectory show meaningful variation rather than generic coverage.
 
 ## Cinematic Playback
 - [ ] Click **Play Cinematic**. Status shows playback progress.
 - [ ] Cars replay their recorded positions (not live movement).
-- [ ] Camera moves according to returned trajectory (position, look-at, FOV change).
+- [ ] Main Camera is driven through Cinemachine during playback.
+- [ ] Camera moves according to returned trajectory (position, look-at, FOV, Dutch angle, focus state).
+- [ ] Zoom- or lens-oriented prompts produce visible FOV/focal-length changes during playback.
+- [ ] Shallow-focus prompts produce visible background blur changes through URP Depth Of Field.
+- [ ] Handheld or steadicam prompts produce visibly different rig feel during playback.
 - [ ] Shot transitions are visible in the console log (shot switch messages).
 - [ ] Playback ends automatically when timeline completes. Status shows "Cinematic finished."
 
@@ -43,6 +50,7 @@
 - [ ] Object IDs are consistent across objects_static, object_tracks, and events.
 - [ ] Response contains `temporal_directing_plan` with shots and beats.
 - [ ] Response contains `temporal_trajectory_plan` with trajectories containing timed_points.
+- [ ] Timed points include runtime lens data such as `dutch`, `focus_distance`, `aperture`, `focal_length`, and `lens_shift`.
 
 ## Error Handling
 - [ ] If backend is offline, clicking Generate Plan shows an error message in the UI status (not a crash).

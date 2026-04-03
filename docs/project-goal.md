@@ -24,7 +24,10 @@ The project is no longer centered on static scene-only planning.
 - Dual-layer event representation:
   - `raw_events` (deterministic signals),
   - `semantic_events` (LLM-readable cinematic moments).
-- Multi-pass directing generation (style/beat/shot/critique).
+- Two planning modes:
+  - `freeform_llm` for open cinematic language with glossary support,
+  - `camera_dsl` for reproducible rig/lens primitives.
+- Multi-pass directing generation (style/beat/shot, with deterministic checks kept advisory).
 - Trajectory solving and validation.
 - Backend + web debug tooling for iteration.
 - Unity-to-backend data contract support.
@@ -54,6 +57,12 @@ The project is no longer centered on static scene-only planning.
 5. **Debuggability**  
    All important outputs are persisted as JSON artifacts and replayable in the web UI.
 
+6. **Film language as structured guidance**  
+   Film terminology should enrich prompting and camera DSL design, but only through compact, curated vocabulary that maps to executable camera controls.
+
+7. **Runtime cinematography matters**  
+   The Unity playback stack should expose more than position and look-at. Lens state, Dutch angle, focus distance, aperture, and rig feel should survive all the way to runtime execution.
+
 ---
 
 ## 4. Current End-to-End Planning Flow
@@ -66,13 +75,19 @@ The project is no longer centered on static scene-only planning.
 4. **Multi-pass LLM planning**:
    - style/director policy,
    - global beats,
-   - shot intents,
-   - critique/refine.
-5. **Deterministic solve**:
+   - shot intents.
+5. **Deterministic diagnostics**:
+   - advisory checks that do not overwrite the LLM's shot design.
+6. **Deterministic solve**:
    - temporal trajectory generation,
+   - lens / FOV / zoom / Dutch / focus realization,
    - transition-aware continuity handling,
    - validation.
-6. **Output**:
+7. **Unity playback execution**:
+   - Cinemachine-driven runtime camera,
+   - URP Depth Of Field runtime control,
+   - replay-ready shot transitions and rig-style playback.
+7. **Output**:
    - temporal directing plan,
    - temporal trajectory plan,
    - validation report,
@@ -85,7 +100,8 @@ The project is no longer centered on static scene-only planning.
 
 - Temporal scenes produce stable, schema-valid plans.
 - Plans show clear cinematic structure (beats, shot intent, transition intent).
+- Plans react materially to film-language prompts such as aerial shot, crane shot, handheld shot, wide-angle lens, zoom shot, and low/high-angle framing.
 - Generated trajectories are replayable and physically plausible.
+- Generated trajectories vary not only by position/look-at, but also by FOV, Dutch angle, focus distance, aperture, and lens behavior when requested.
 - Unity integration can submit timelines and consume outputs through a documented contract.
 - Iteration can be done quickly from backend/frontend tooling without Unity launch dependency.
-

@@ -109,6 +109,7 @@ class TemporalPromptBuilder:
             reveal_opportunities_text=self._format_reveal_opportunities(temporal_cinematic, max_items=4),
             beats_text=self._format_beats(beats),
             intent=intent,
+            film_language_glossary_text=self._format_film_language_glossary(),
             camera_dsl_catalog_text=self._format_camera_dsl_catalog(),
         )
         user_prompt += self._append_extra_context(
@@ -367,4 +368,10 @@ class TemporalPromptBuilder:
         path = self._dir / "temporal_camera_dsl_catalog.txt"
         if not path.exists():
             return "No camera DSL catalog available."
+        return path.read_text(encoding="utf-8").strip()
+
+    def _format_film_language_glossary(self) -> str:
+        path = self._dir / "temporal_film_language_glossary.txt"
+        if not path.exists():
+            return "No film-language glossary available."
         return path.read_text(encoding="utf-8").strip()

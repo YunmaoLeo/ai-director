@@ -24,7 +24,8 @@ Request body shape:
   "intent": "string",
   "scene_timeline": { "...SceneTimeline..." },
   "llm_provider": "openai",
-  "llm_model": "gpt-4o",
+  "llm_model": "gpt-5",
+  "planning_mode": "freeform_llm",
   "director_hint": "auto",
   "director_notes": "optional"
 }
@@ -32,8 +33,13 @@ Request body shape:
 
 Notes:
 
-- `llm_provider`, `llm_model`, `director_hint`, `director_notes` are optional.
+- `llm_provider`, `llm_model`, `planning_mode`, `director_hint`, `director_notes` are optional.
 - Backward-compatible fields `cinematic_style` and `style_notes` are still accepted but deprecated.
+
+Planning modes:
+
+- `freeform_llm`: open camera language with curated film-language glossary support in the shot prompt.
+- `camera_dsl`: glossary-aware camera DSL mode with reusable rig and lens primitives.
 
 ---
 
@@ -73,6 +79,12 @@ When backend enriches semantic events, each semantic event includes:
 
 This enriched layer is then used by downstream beat/shot/trajectory planning.
 
+The semantic prompt is intentionally compacted before LLM use:
+
+- repetitive raw events are de-noised into representative samples,
+- event-type distribution is preserved,
+- the backend avoids injecting duplicate narrative summaries across passes.
+
 ---
 
 ## 5. Backend Planning Stages
@@ -86,10 +98,10 @@ For each temporal generate request:
 5. Run multi-pass directing generation:
    - style/director pass,
    - beat pass,
-   - shot pass,
-   - critique pass.
-6. Solve temporal trajectories (transition-aware + event-aware framing).
-7. Validate outputs and persist artifacts.
+   - shot pass.
+6. Run deterministic checks for diagnostics only (does not rewrite the LLM shot plan).
+7. Solve temporal trajectories (transition-aware + event-aware framing, plus lens/FOV control).
+8. Validate outputs and persist artifacts.
 
 ---
 
@@ -106,8 +118,37 @@ For each temporal generate request:
   - `output_prefix`
   - `scene_id`, `intent`
   - `llm_provider`, `llm_model`
+  - `planning_mode`
   - `director_policy`, `director_rationale`
   - `saved_at`
+
+Trajectory timed points include:
+
+- `position`
+- `look_at`
+- `fov`
+- `dutch`
+- `focus_distance`
+- `aperture`
+- `focal_length`
+- `lens_shift`
+
+Shot constraints may also include lens-oriented controls such as:
+
+- `fov`, `fov_start`, `fov_end`
+- `dutch`, `dutch_start`, `dutch_end`
+- `focus_distance`, `focus_distance_start`, `focus_distance_end`
+- `aperture`, `aperture_start`, `aperture_end`
+- `focal_length`, `focal_length_start`, `focal_length_end`
+- `lens_shift`, `lens_shift_start`, `lens_shift_end`
+- `lens_profile`
+- `zoom_profile`
+- `camera_height_start`, `camera_height_end`
+- `rig_style`
+- `dsl`
+- `film_terms`
+
+Unity playback now consumes these through `Cinemachine` and URP `Depth Of Field`, so the contract no longer stops at camera position and FOV alone.
 
 ---
 
@@ -134,4 +175,3 @@ Unity-side implementation should ensure:
 5. Submit full `scene_timeline` + `intent` in one request.
 
 That is enough for backend planning to operate correctly.
-

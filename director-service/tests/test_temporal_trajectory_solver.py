@@ -139,3 +139,89 @@ class TestTemporalTrajectorySolver:
         assert pytest.approx(flash_jump, rel=0.1, abs=0.15) == cut_jump
         assert smooth_traj[1].transition_in == "smooth"
         assert flash_traj[1].transition_in == "flash_cut"
+
+    def test_crane_rise_dsl_increases_camera_height(self, walking_actor_timeline):
+        timeline = walking_actor_timeline
+        plan = TemporalDirectingPlan(
+            plan_id="plan_crane_rise",
+            scene_id=timeline.scene_id,
+            intent="Use a crane rise to reveal the path",
+            time_span=timeline.time_span,
+            shots=[
+                TemporalShot(
+                    shot_id="shot_crane",
+                    time_start=timeline.time_span.start,
+                    time_end=min(timeline.time_span.end, timeline.time_span.start + 3.0),
+                    goal="Reveal the route with a crane rise",
+                    subject="actor_1",
+                    shot_type="crane shot",
+                    movement="crane rise",
+                    constraints={"dsl": "crane_rise"},
+                )
+            ],
+        )
+
+        trajectory = self.solver.solve(plan, timeline).trajectories[0]
+        assert trajectory.timed_points[0].position[1] < trajectory.timed_points[-1].position[1]
+
+    def test_zoom_constraints_drive_fov_curve(self, walking_actor_timeline):
+        timeline = walking_actor_timeline
+        plan = TemporalDirectingPlan(
+            plan_id="plan_zoom",
+            scene_id=timeline.scene_id,
+            intent="Use a zoom-in punch",
+            time_span=timeline.time_span,
+            shots=[
+                TemporalShot(
+                    shot_id="shot_zoom",
+                    time_start=timeline.time_span.start,
+                    time_end=min(timeline.time_span.end, timeline.time_span.start + 2.5),
+                    goal="Punch into the subject",
+                    subject="actor_1",
+                    shot_type="zoom shot",
+                    movement="static",
+                    constraints={"dsl": "zoom_in_punch"},
+                )
+            ],
+        )
+
+        trajectory = self.solver.solve(plan, timeline).trajectories[0]
+        assert trajectory.timed_points[0].fov > trajectory.timed_points[-1].fov
+
+    def test_lens_and_focus_constraints_flow_into_timed_points(self, walking_actor_timeline):
+        timeline = walking_actor_timeline
+        plan = TemporalDirectingPlan(
+            plan_id="plan_lens",
+            scene_id=timeline.scene_id,
+            intent="Use a dutch angle with shallow focus",
+            time_span=timeline.time_span,
+            shots=[
+                TemporalShot(
+                    shot_id="shot_lens",
+                    time_start=timeline.time_span.start,
+                    time_end=min(timeline.time_span.end, timeline.time_span.start + 2.0),
+                    goal="Destabilize the frame and isolate the subject",
+                    subject="actor_1",
+                    shot_type="dutch close-up",
+                    movement="static",
+                    constraints={
+                        "dutch": 14.0,
+                        "focus_distance": 3.5,
+                        "aperture": 2.0,
+                        "focal_length": 85.0,
+                        "lens_shift": [0.08, -0.04],
+                    },
+                )
+            ],
+        )
+
+        trajectory = self.solver.solve(plan, timeline).trajectories[0]
+        first = trajectory.timed_points[0]
+        last = trajectory.timed_points[-1]
+
+        assert first.dutch == pytest.approx(14.0)
+        assert last.dutch == pytest.approx(14.0)
+        assert first.focus_distance == pytest.approx(3.5)
+        assert first.aperture == pytest.approx(2.0)
+        assert first.focal_length == pytest.approx(85.0)
+        assert first.lens_shift == pytest.approx((0.08, -0.04))

@@ -15,9 +15,16 @@ Camera DSL policy:
 - Use `constraints.dsl` to name a camera rig / behavior pattern.
 - Use `constraints` fields to parameterize the shot physically, especially:
   - `camera_height`
+  - `camera_height_start`
+  - `camera_height_end`
   - `camera_distance`
   - `distance_scale`
   - `fov`
+  - `fov_start`
+  - `fov_end`
+  - `lens_profile`
+  - `zoom_profile`
+  - `rig_style`
   - `camera_offset`
   - `look_at_offset`
   - `overhead`
@@ -25,7 +32,8 @@ Camera DSL policy:
   - `height_bias`
   - `vantage`
   - `orbit_arc_degrees`
-- If the user asks for aerial / helicopter / drone / surveillance / tactical / overhead / low-angle / ground-skimming coverage, encode that explicitly in the DSL fields.
+- `film_terms`
+- If the user asks for aerial / helicopter / drone / surveillance / tactical / overhead / crane / high-angle / low-angle / handheld / Steadicam / zoom / wide-angle / fisheye coverage, encode that explicitly in the DSL fields.
 - Avoid collapsing unusual camera requests into generic wide shots unless the scene physically cannot support them.
 
 Shot design principles:
@@ -34,5 +42,6 @@ Shot design principles:
 - Distinguish between framing intent and camera motion intent.
 - Use contrast between shots to create rhythm.
 - Use the DSL to stabilize creativity, not to flatten it.
+- Use the provided film-language glossary when it helps pick a more cinematic DSL or lens package.
 
 Output ONLY valid JSON. No commentary.

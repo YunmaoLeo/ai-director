@@ -120,6 +120,110 @@ Available camera DSL primitives and guidance:
   - `camera_height: 5.0-12.0`
   - `distance_scale: 0.8-1.4`
 
+17. `crane_rise`
+- Camera lifts vertically through the shot while preserving subject focus.
+- Inspired by the glossary idea of a crane shot.
+- Typical constraints:
+  - `rig_style: crane`
+  - `camera_height_start: 2.0-4.0`
+  - `camera_height_end: 5.0-10.0`
+  - `fov_start: 48-60`
+  - `fov_end: 58-72`
+
+18. `crane_drop`
+- Camera descends from a higher setup into the action.
+- Best for dropping from overview into confrontation or speed.
+- Typical constraints:
+  - `rig_style: crane`
+  - `camera_height_start: 5.0-10.0`
+  - `camera_height_end: 1.0-4.0`
+  - `fov_start: 60-72`
+  - `fov_end: 45-58`
+
+19. `handheld_chase`
+- Rough, embodied pursuit coverage with controlled instability.
+- Inspired by the glossary notion of a handheld shot.
+- Typical constraints:
+  - `rig_style: handheld`
+  - `camera_height: 1.0-1.8`
+  - `camera_distance: 1.0-3.0`
+  - `lens_profile: wide_angle`
+
+20. `steadicam_glide`
+- Smooth gliding follow shot that feels controlled rather than shaky.
+- Inspired by the glossary notion of a Steadicam shot.
+- Typical constraints:
+  - `rig_style: steadicam`
+  - `camera_height: 1.2-2.0`
+  - `camera_distance: 1.5-4.0`
+  - `fov: 48-64`
+
+21. `swish_pan_reveal`
+- Fast sweeping pan used as an energetic reveal or transition.
+- Inspired by the glossary idea of a swish pan.
+- Typical constraints:
+  - `rig_style: tripod`
+  - `fov: 65-82`
+  - `zoom_profile: crash_zoom_out` or `breathing`
+
+22. `zoom_in_punch`
+- Focal length tightens aggressively during the shot.
+- Inspired by the glossary notion of a zoom shot.
+- Typical constraints:
+  - `fov_start: 65-82`
+  - `fov_end: 32-52`
+  - `zoom_profile: zoom_in` or `crash_zoom_in`
+
+23. `zoom_out_reveal`
+- Focal length opens out to reveal more geography over time.
+- Best for scale reveal and spatial clarification.
+- Typical constraints:
+  - `fov_start: 32-52`
+  - `fov_end: 62-84`
+  - `zoom_profile: zoom_out`
+
+24. `low_angle_hero`
+- Camera stays below eye level to emphasize power, speed, or dominance.
+- Inspired by the glossary notion of a low-angle shot.
+- Typical constraints:
+  - `vantage: low_angle`
+  - `camera_height: 0.3-1.0`
+  - `camera_distance: 1.2-3.5`
+  - `lens_profile: telephoto` or `normal`
+
+25. `wide_lens_rush`
+- Close camera with a broad field of view that exaggerates depth and velocity.
+- Inspired by the glossary notion of a wide-angle lens.
+- Typical constraints:
+  - `lens_profile: wide_angle`
+  - `fov: 75-92`
+  - `camera_distance: 1.0-3.0`
+
+26. `fisheye_surge`
+- Extreme wide-angle stylization for distortion, pressure, or chaos.
+- Inspired by the glossary notion of a fisheye lens.
+- Typical constraints:
+  - `lens_profile: fisheye`
+  - `fov: 88-100`
+  - `camera_distance: 0.8-2.0`
+
+27. `deep_focus_tableau`
+- Geography-preserving composition that keeps foreground and background legible together.
+- Inspired by the glossary notions of deep focus and wide-angle lensing.
+- Typical constraints:
+  - `lens_profile: wide_angle`
+  - `fov: 60-78`
+  - `vantage: high_angle` or `grounded`
+
+28. `pov_drive`
+- Subjective point-of-view framing aligned tightly to a moving actor or vehicle.
+- Inspired by the glossary notion of point of view.
+- Typical constraints:
+  - `film_terms: [\"point of view\"]`
+  - `camera_distance: 0.2-1.0`
+  - `fov: 68-90`
+  - `rig_style: handheld` or `steadicam`
+
 Usage notes:
 - You may invent new DSL labels if needed, but prefer the catalog when one clearly fits.
 - `constraints.dsl` should name the primary camera behavior.
@@ -128,4 +232,4 @@ Usage notes:
   - a framing label (`shot_type`)
   - a motion label (`movement`)
   - a DSL primitive (`constraints.dsl`)
-  - 2-4 numeric constraints
+  - 2-6 numeric constraints

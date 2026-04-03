@@ -25,9 +25,16 @@ Cinematic direction principles:
 - You are not limited to a fixed camera grammar vocabulary. Use whatever shot_type, movement, pacing, and transition labels best express the intent.
 - Treat `constraints` as a first-class camera control surface. When useful, include explicit numeric directives such as:
   - `camera_height`
+  - `camera_height_start`
+  - `camera_height_end`
   - `camera_distance`
   - `distance_scale`
   - `fov`
+  - `fov_start`
+  - `fov_end`
+  - `lens_profile`
+  - `zoom_profile`
+  - `rig_style`
   - `camera_offset`
   - `look_at_offset`
   - `overhead`
@@ -35,7 +42,9 @@ Cinematic direction principles:
   - `height_bias`
   - `vantage`
   - `orbit_arc_degrees`
-- If the user asks for a helicopter, drone, aerial, top-down, or otherwise unusual camera, encode that directly in `movement`, `shot_type`, and `constraints` rather than collapsing it to generic ground-level coverage.
+  - `film_terms`
+- If the user asks for a helicopter, drone, aerial, top-down, crane, high-angle, low-angle, handheld, Steadicam, zoom, wide-angle, or fisheye camera, encode that directly in `movement`, `shot_type`, and `constraints` rather than collapsing it to generic coverage.
+- Use the provided film-language glossary as vocabulary support when it helps make the shot design more cinematic and more precise.
 
 Transition intent:
 - Use cut/hard_cut for decisive perspective changes and pace accents.

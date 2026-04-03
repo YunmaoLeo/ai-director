@@ -30,6 +30,8 @@ def test_shot_prompt_omits_duplicate_replay_description(walking_actor_timeline):
 
     assert "### Replay Description (Derived from Unity Timeline)" not in prompt
     assert "### Cinematic Style Guidance" in prompt
+    assert "## Film Language Glossary" in prompt
+    assert "`aerial shot`" in prompt
 
 
 def test_beat_prompt_truncates_overlong_event_summary(walking_actor_timeline):

@@ -51,8 +51,11 @@ namespace DirectorRuntime
         [Tooltip("Emit environment objects into objects_static for better debug visualization/context.")]
         public bool includeEnvironmentObjects = true;
 
-        [Tooltip("Upper bound for auto-captured environment objects.")]
-        public int maxEnvironmentObjects = 24;
+        [Tooltip("Capture each visible static renderer as its own environment object instead of truncating to a small subset.")]
+        public bool captureAllEnvironmentObjects = true;
+
+        [Tooltip("Upper bound for auto-captured environment objects when full capture is disabled.")]
+        public int maxEnvironmentObjects = 256;
 
         /// <summary>Last built timeline, kept for debug inspection.</summary>
         [HideInInspector] public SceneTimelineData lastTimeline;
@@ -237,7 +240,7 @@ namespace DirectorRuntime
 
         private void AddEnvironmentData(SceneTimelineData timeline, ref Vector3 minP, ref Vector3 maxP)
         {
-            var seenRoots = new HashSet<int>();
+            var seenObjects = new HashSet<int>();
             int emitted = 0;
 
             var renderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
@@ -258,13 +261,14 @@ namespace DirectorRuntime
                     maxP = Vector3.Max(maxP, b.max);
                 }
 
-                if (!includeEnvironmentObjects || emitted >= maxEnvironmentObjects) continue;
+                if (!includeEnvironmentObjects) continue;
+                if (!captureAllEnvironmentObjects && emitted >= maxEnvironmentObjects) continue;
 
-                var root = renderer.transform.root;
-                int key = root != null ? root.GetInstanceID() : renderer.gameObject.GetInstanceID();
-                if (!seenRoots.Add(key)) continue;
+                var anchor = GetEnvironmentAnchor(renderer);
+                int key = anchor.GetInstanceID();
+                if (!seenObjects.Add(key)) continue;
 
-                var so = BuildEnvironmentObject(root != null ? root.gameObject : renderer.gameObject, b, key);
+                var so = BuildEnvironmentObject(anchor, b, key);
                 timeline.objects_static.Add(so);
                 emitted++;
             }
@@ -294,8 +298,7 @@ namespace DirectorRuntime
             if (go == null) return false;
             if (go.CompareTag("EditorOnly")) return false;
             if (go.name.StartsWith("__", System.StringComparison.Ordinal)) return false;
-
-            if (go.isStatic) return true;
+            if (IsStaticHierarchy(go)) return true;
 
             string n = go.name.ToLowerInvariant();
             return n.Contains("ground")
@@ -304,10 +307,53 @@ namespace DirectorRuntime
                 || n.Contains("road")
                 || n.Contains("terrain")
                 || n.Contains("wall")
+                || n.Contains("building")
+                || n.Contains("house")
+                || n.Contains("roof")
+                || n.Contains("facade")
+                || n.Contains("window")
+                || n.Contains("door")
+                || n.Contains("sidewalk")
+                || n.Contains("curb")
+                || n.Contains("crosswalk")
+                || n.Contains("fence")
+                || n.Contains("sign")
+                || n.Contains("bench")
+                || n.Contains("lamp")
+                || n.Contains("tree")
+                || n.Contains("stairs")
                 || n.Contains("room")
                 || n.Contains("arena")
                 || n.Contains("stage")
                 || n.Contains("platform");
+        }
+
+        private static GameObject GetEnvironmentAnchor(Renderer renderer)
+        {
+            if (renderer == null) return null;
+
+            Transform current = renderer.transform;
+            Transform lastStatic = current;
+            while (current.parent != null && current.parent != current.root)
+            {
+                if (!IsStaticHierarchy(current.parent.gameObject)) break;
+                lastStatic = current.parent;
+                current = current.parent;
+            }
+
+            return lastStatic != null ? lastStatic.gameObject : renderer.gameObject;
+        }
+
+        private static bool IsStaticHierarchy(GameObject go)
+        {
+            Transform current = go != null ? go.transform : null;
+            while (current != null)
+            {
+                if (current.gameObject.isStatic) return true;
+                current = current.parent;
+            }
+
+            return false;
         }
 
         private static string ClassifyAcceleration(List<ReplayableActor.Snapshot> snaps)

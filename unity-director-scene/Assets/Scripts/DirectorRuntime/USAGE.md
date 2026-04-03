@@ -7,10 +7,25 @@
 2. Menu: **AI Director > Setup Demo Scene**.
    - This rebuilds a polished slot-car style demo (track surface, lane markers, barriers, start gate, two stylized cars), plus a DirectorController object with all required components.
 
+### 1b. Human Interaction Demo Scene
+1. Open `Assets/Scenes/HumanInteractionScene.unity`.
+2. This scene is built from the Cube People demo environment and is intended for character-introduction cinematics instead of vehicle coverage.
+3. Scene highlights:
+   - It now uses a fresh `CubePeople_Demo` scene copy as its base, so the original pedestrian traffic behavior stays intact.
+   - `Hero` is the controllable protagonist with `EightDirectionMovement` and `ReplayableActor`.
+   - `GameplayCameraRig` follows the hero and doubles as the main playback/output camera for cinematic playback.
+   - `People` contains the original moving pedestrians; a curated subset also has `ReplayableActor` so the director system can reason about surrounding motion.
+   - `DirectorController` is already configured for recording, planning, and playback.
+4. Recommended first prompt:
+   - `Introduce the hero as the focus of a short urban character vignette with building occlusion reveals, close-ups, and graceful wider crowd shots.`
+
 ### 2. Run the Workflow
 1. **Enter Play Mode** (Ctrl+P / Cmd+P).
 2. The two cars stay still until you click **Start Recording**.
 3. Use the on-screen responsive control panel. The timeline cache now shows save timestamps and keeps the newest takes at the top.
+4. Choose a planning mode before generating:
+   - **Freeform LLM**: more open cinematic language, guided by a curated film-language glossary.
+   - **Camera DSL**: stronger rig/lens primitives for more reproducible camera behavior.
 
 | Button | Action |
 |---|---|
@@ -49,14 +64,28 @@ Captures all `ReplayableActor` objects in the scene.
 HTTP bridge to the backend.
 - **Backend URL**: Base URL (no trailing slash).
 - **LLM Provider / Model**: Optional overrides.
+- **Planning Mode**: `freeform_llm` or `camera_dsl`.
 - **Director Hint**: Planning policy hint (default "auto").
 
 ### CinematicPlayer
 Drives camera playback from the trajectory plan.
 - **Target Camera**: Camera to control (defaults to Camera.main).
+- **Global Volume**: Optional URP global volume reference for runtime Depth Of Field control.
 - **Playback Speed**: Time scale multiplier.
 - **Transition Blend Time**: Smooth blend duration for non-cut transitions.
+- **Use Cinemachine**: Routes playback through `CinemachineBrain + CinemachineCamera`.
+- **Enable Depth Of Field**: Applies runtime URP Bokeh DoF using backend-generated focus/aperture/focal-length values.
 - Uses transition/path easing for less linear camera motion (`soft_cut`, `dissolve`, `whip_pan`, `ease_in_out`, etc.).
+- Applies returned per-point camera state, including:
+  - position,
+  - look-at driven rotation,
+  - FOV,
+  - Dutch angle,
+  - focus distance,
+  - aperture,
+  - focal length,
+  - lens shift.
+- Applies rig feel through Cinemachine runtime noise for styles such as handheld and subtle steadicam motion.
 
 ### ReplayableActor
 Attach to any GameObject that should be recorded/replayed.
@@ -109,3 +138,11 @@ The system is scene-agnostic:
 4. `WaypointFollower` is optional - only needed for the demo's deterministic paths.
 5. The SceneRecorder captures whatever transforms exist at sample time.
 6. Raw events are auto-generated from motion analysis (speed changes, direction changes, proximity interactions).
+
+## Film Language Notes
+
+- The backend shot planner now uses a curated film-language glossary derived from the Columbia Film Language Glossary.
+- In **Freeform LLM** mode, the glossary expands the model's vocabulary for prompts like "crane shot", "Steadicam shot", "wide-angle lens", or "fisheye".
+- In **Camera DSL** mode, many glossary concepts map to executable DSL rigs such as `crane_rise`, `handheld_chase`, `steadicam_glide`, `zoom_in_punch`, and `low_angle_hero`.
+- Lens-oriented constraints such as `fov`, `fov_start`, `fov_end`, `dutch`, `focus_distance`, `aperture`, `focal_length`, `lens_shift`, `lens_profile`, and `zoom_profile` are now part of the camera control surface.
+- Unity playback executes these controls with `Cinemachine 3` and URP `Depth Of Field`, so the final cinematic no longer depends only on transform playback.

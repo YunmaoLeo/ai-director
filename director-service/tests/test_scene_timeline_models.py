@@ -140,9 +140,19 @@ class TestTemporalTrajectoryPlan:
             position=(3.0, 1.5, 4.0),
             look_at=(2.0, 0.5, 3.0),
             fov=50.0,
+            dutch=6.0,
+            focus_distance=4.5,
+            aperture=2.8,
+            focal_length=55.0,
+            lens_shift=(0.05, -0.02),
         )
         assert pt.timestamp == 1.0
         assert pt.fov == 50.0
+        assert pt.dutch == 6.0
+        assert pt.focus_distance == 4.5
+        assert pt.aperture == 2.8
+        assert pt.focal_length == 55.0
+        assert pt.lens_shift == (0.05, -0.02)
 
     def test_create_trajectory(self):
         traj = TemporalShotTrajectory(
