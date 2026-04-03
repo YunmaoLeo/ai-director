@@ -11,6 +11,7 @@ UserSettings/
 
 # Visual Studio / Rider
 .vs/
+.idea/
 *.csproj
 *.sln
 *.user
@@ -31,3 +32,12 @@ venv/
 # -----------------
 .DS_Store
 Thumbs.db
+
+# -----------------
+# Local Generated Artifacts
+# -----------------
+/outputs/
+/unity-director-scene/PlanCache/
+/unity-director-scene/TimelineCache/timeline_*.json
+/unity-director-scene/Assets/Screenshots/ui-review*.png
+/unity-director-scene/Assets/Screenshots/ui-review*.png.meta
